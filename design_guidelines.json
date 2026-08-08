@@ -1,0 +1,106 @@
+{
+  "theme": "dark",
+  "archetype": "Archetype 5 (Luxury/Premium) blended with Archetype 7 (Electric/Speed for Chrome/Metallic accents)",
+  "typography": {
+    "headings": {
+      "family": "Outfit",
+      "weights": ["400", "500", "700"],
+      "tracking": "tracking-tight",
+      "instruction": "Use 'Outfit' for all headings to give a sleek, premium, and futuristic tech feel. Never use Inter for headings."
+    },
+    "body": {
+      "family": "Inter",
+      "weights": ["400", "500"],
+      "tracking": "tracking-normal",
+      "instruction": "Use 'Inter' for body and tabular data to ensure maximum legibility at small sizes."
+    },
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-slate-200",
+      "h2": "text-2xl sm:text-3xl font-semibold tracking-tight text-white",
+      "h3": "text-xl font-medium tracking-tight text-slate-200",
+      "body": "text-sm md:text-base text-slate-400",
+      "labels": "text-xs font-semibold tracking-[0.2em] uppercase text-slate-500"
+    }
+  },
+  "colors": {
+    "background": {
+      "app": "#050507",
+      "surface": "#0C0D12",
+      "surface_hover": "#13151D",
+      "glass": "bg-[#0C0D12]/70 backdrop-blur-xl"
+    },
+    "text": {
+      "primary": "#F8FAFC",
+      "secondary": "#94A3B8",
+      "muted": "#475569"
+    },
+    "accents": {
+      "primary": "blue-500",
+      "metallic_gradient": "bg-gradient-to-r from-blue-500 via-blue-300 to-slate-300",
+      "chrome_border": "border-slate-700/50 hover:border-blue-500/50 transition-colors",
+      "status": {
+        "cached": "#10B981",
+        "downloading": "#F59E0B",
+        "error": "#F43F5E"
+      }
+    },
+    "instruction": "Avoid pure black (#000000). Use tinted midnight #050507. Restrict metallic chrome effects to text gradients, 1px active borders, and active states. Do not use large blocks of bright gradients."
+  },
+  "visual_enhancers": {
+    "glassmorphism": "Use Crystal Glass variant for Top Navigation and Sticky Filters: bg-[#0C0D12]/70 backdrop-blur-xl border-b border-white/10.",
+    "borders": "1px inner borders (border-white/5 or border-white/10) on all cards and rows to simulate a sleek metallic edge.",
+    "shadows": "Ambient diffuse shadows shadow-[0_8px_32px_rgba(0,0,0,0.3)] for modals and dropdowns.",
+    "hover_states": "Interactive elements must lift (-translate-y-[1px]) and brighten. Rows should highlight with bg-white/5."
+  },
+  "grids_and_layouts": {
+    "global_layout": "Sidebar (collapsed on mobile) + Top Header (sticky glassmorphism) + Main Content area.",
+    "media_grid": "Bento-style or Auto-fit Grid (grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6) with gap-6 for movie/TV posters.",
+    "data_density": "High Density Grid for torrent source lists (Detail Page). Use compact rows with minimal padding (py-2 px-4) to maximize data visibility (filename, size, peers, status).",
+    "spacing": "Generous spacing (p-8 to p-12) for section wrappers. Tight spacing (gap-2) for metadata chips."
+  },
+  "components": {
+    "buttons": "Pill-shaped (rounded-full) or slightly rounded (rounded-md) for technical actions. Primary actions use metallic gradient or solid blue-600. Include hover:brightness-110.",
+    "cards": "Media cards: Aspect ratio 2:3, rounded-lg, overflow-hidden, group-hover scale effect on image, persistent gradient overlay at bottom for title text.",
+    "badges": "Quality (4K, 1080p) / Tech (HDR, x265) / Status (Cached): Small (text-[10px]), rounded-sm, px-2 py-0.5, border border-white/10, bg-white/5 text-slate-300. Cached badge gets green text/border.",
+    "search_bar": "Command K style global search in header. bg-white/5, border border-white/10, rounded-full, text-sm, left icon, subtle focus ring.",
+    "tables_lists": "Use generic div rows for torrent sources (not strict table) to allow flexible wrapping on mobile. Flex layout, items-center.",
+    "shadcn_primitives": "Use standard Shadcn UI logic for Dialog, DropdownMenu, Tabs, and Toast (sonner), customized to match the dark metallic theme."
+  },
+  "motion_and_interaction": {
+    "hover": "transition-all duration-300 ease-out. Never use 'transition-all' universally on body/containers; apply specifically to interactive elements.",
+    "page_transitions": "Subtle fade-in and slide-up (translate-y-4 to 0, opacity-0 to 100) for lists and grids.",
+    "loading": "Skeleton loaders matching the shape of content with a subtle blue/slate shimmer pulse."
+  },
+  "accessibility": {
+    "contrast": "Ensure text meets APCA/WCAG standards against dark backgrounds. Use text-shadow for text over images.",
+    "focus": "focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#050507]",
+    "testing": "All interactive elements (buttons, links, search input, table rows, tab triggers) MUST include a 'data-testid' attribute (e.g., data-testid='install-stremio-btn')."
+  },
+  "media_and_assets": {
+    "icons": "Use 'lucide-react' for crisp, technical UI icons. Size 16px to 20px.",
+    "image_urls": {
+      "movie_posters": [
+        "https://images.unsplash.com/photo-1767048264833-5b65aacd1039?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTJ8MHwxfHNlYXJjaHw0fHxjaW5lbWF0aWMlMjBzY2ktZmklMjBtb3ZpZSUyMHBvc3RlcnxlbnwwfHx8fDE3ODYyMTY5NjN8MA&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1780764818559-1dd2205ea2c5?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTJ8MHwxfHNlYXJjaHwzfHxjaW5lbWF0aWMlMjBzY2ktZmklMjBtb3ZpZSUyMHBvc3RlcnxlbnwwfHx8fDE3ODYyMTY5NjN8MA&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1541415109140-571dd7c83b75?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTJ8MHwxfHNlYXJjaHwyfHxjaW5lbWF0aWMlMjBzY2ktZmklMjBtb3ZpZSUyMHBvc3RlcnxlbnwwfHx8fDE3ODYyMTY5NjN8MA&ixlib=rb-4.1.0&q=85"
+      ],
+      "hero_backdrop": [
+        "https://images.unsplash.com/photo-1687618049680-3b334671044c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2Nzd8MHwxfHNlYXJjaHwyfHxtZXRhbGxpYyUyMGNocm9tZSUyMGFic3RyYWN0JTIwdGV4dHVyZSUyMGJsdWUlMjBzaWx2ZXJ8ZW58MHx8fHwxNzg2MjE2OTYzfDA&ixlib=rb-4.1.0&q=85"
+      ],
+      "dashboard_placeholders": [
+        "https://images.unsplash.com/photo-1551288049-bebda4e38f71?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1OTN8MHwxfHNlYXJjaHwxfHxkYXJrJTIwbWluaW1hbGlzdCUyMG1vZGVybiUyMGRhc2hib2FyZCUyMHVpfGVufDB8fHx8MTc4NjIxNjk2M3ww&ixlib=rb-4.1.0&q=85"
+      ]
+    },
+    "instructions_to_main_agent": "Implement a sleek, dark-themed Media/Debrid Management Dashboard. The design should mimic premium streaming apps (like Apple TV+ or Plex) combined with power-user technical capabilities (torrent sourcing, Stremio addon generation). Files must be .js (.jsx) and NOT .tsx. Use pure Tailwind for layout structures, leaving Shadcn specifically for highly interactive elements (dropdowns, dialogs). Emphasize metallic chrome UI via refined CSS: transparent backgrounds with subtle borders and metallic text gradients. Apply 'data-testid' to ALL buttons and critical UI items."
+  },
+  "universal_guidelines_for_main_agent": [
+    "Ensure dark theme looks deep, not flat. Use layered z-index depths.",
+    "Do not center-align the app container (remove App text-align center).",
+    "Avoid generic centered layouts, simplistic gradients, and uniform styling.",
+    "No transparent backgrounds on dropdowns or overlays - always use blurred glassy surfaces or solid #0C0D12.",
+    "Use 'sonner' for toasts.",
+    "Do NOT use Emoji characters (🤖🧠💭) for icons. Use lucide-react.",
+    "Do not use universal 'transition: all' classes; be specific to transform, opacity, and color.",
+    "Ensure the generated Stremio manifest configuration page looks highly technical yet user-friendly."
+  ]
+}
