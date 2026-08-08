@@ -1,0 +1,27 @@
+{
+  "summary": "Full backend + frontend test pass for DMM (TorBox + TMDB + Stremio). 17/17 pytest cases passed (config, TMDB search/trending/discover/meta/season, sources for movie and series, TorBox add+resolve of cached hash tt1964418, library, Stremio manifest/stream/catalog). Frontend flows verified via Playwright: Home hero+poster grid (20 cards), sidebar nav (Discover/Movies/TV Shows/Library/Stremio Addon/Settings) and TorBox status (420directory@gmail.com) rendered; global search -> /search (16 results) -> click poster -> /title/movie/158852 detail page; detail loaded 100 sources with 3 cached at top, filter input, cached-only toggle, and 2160p/1080p/720p/480p chips all functional; Play button on cached row successfully called /api/torbox/resolve and returned tb-cdn.io URL; Library page listed 75 items with play/delete buttons; Settings page shows apikey input + save + 2 source toggles (save works); Stremio page generates manifest URL, exposes copy/install buttons.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Settings", "issues": ["Only 2 source toggles rendered - verify all configured indexer sources are exposed (backend /api/config returns available_sources list)."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_dmm_api.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is 768 lines — consider splitting into routers (tmdb, torbox, indexers, stremio) for maintainability.",
+    "First /api/sources call is slow (cold scrape) — response time observed ~5-8s; acceptable but consider a background prefetch/warm cache on trending items.",
+    "Settings page appears to expose only 2 source toggles; confirm this matches available_sources from /api/config (apibay + eztv only?). If more indexers are configured they should be surfaced."
+  ],
+  "updated_files": ["/app/backend/tests/test_dmm_api.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "None. Re-added an already-cached hash (32415815a0b4621400688f0bf2966d7fd3435d93) to TorBox; TorBox returns existing cached item (idempotent).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Backend pytest at /app/backend/tests/test_dmm_api.py covers 17 core APIs incl. Stremio manifest/stream/catalog. Cached test hash: 32415815a0b4621400688f0bf2966d7fd3435d93 (Tomorrowland, imdb tt1964418, tmdb 158852). Series test: Breaking Bad tmdb 1396 / imdb tt0903747. TorBox account: 420directory@gmail.com. All UI data-testids present per spec."
+}

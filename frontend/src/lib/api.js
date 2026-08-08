@@ -1,0 +1,30 @@
+import axios from "axios";
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+export const API = `${BACKEND_URL}/api`;
+
+export const BRAND = {
+  logo: "https://static.prod-images.emergentagent.com/jobs/4c3cfdd9-909a-42ca-a0a0-9a803d3f7427/images/c5b6008cf37951d9d0f85378fc1fddd0857a75b1f8aa1e8a04f82cd58bcfaac3.jpeg",
+  icon: "https://static.prod-images.emergentagent.com/jobs/4c3cfdd9-909a-42ca-a0a0-9a803d3f7427/images/3432b210e7a4ebbaf55fd5f9cd44b4b5a753aa7f65c9c60b34bdfef7085e39aa.jpeg",
+};
+
+const client = axios.create({ baseURL: API });
+
+export const api = {
+  config: () => client.get("/config").then((r) => r.data),
+  updateSettings: (body) => client.post("/settings", body).then((r) => r.data),
+  search: (q) => client.get("/search", { params: { q } }).then((r) => r.data),
+  trending: () => client.get("/trending").then((r) => r.data),
+  discover: (type) => client.get(`/discover/${type}`).then((r) => r.data),
+  meta: (type, id) => client.get(`/meta/${type}/${id}`).then((r) => r.data),
+  season: (id, s) => client.get(`/season/${id}/${s}`).then((r) => r.data),
+  sources: (imdb, params) => client.get(`/sources/${imdb}`, { params }).then((r) => r.data),
+  add: (body) => client.post("/torbox/add", body).then((r) => r.data),
+  resolve: (body) => client.post("/torbox/resolve", body).then((r) => r.data),
+  library: () => client.get("/library").then((r) => r.data),
+  deleteLib: (id) => client.delete(`/library/${id}`).then((r) => r.data),
+  libraryDl: (tid, fid) => client.get(`/library/dl/${tid}/${fid}`).then((r) => r.data),
+  manifestUrl: (body) => client.post("/stremio/manifest-url", body).then((r) => r.data),
+};
+
+export default api;
