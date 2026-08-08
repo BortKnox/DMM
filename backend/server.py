@@ -12,7 +12,7 @@ from urllib.parse import quote
 
 import httpx
 from fastapi import FastAPI, APIRouter, HTTPException, Query, Request
-from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.responses import RedirectResponse, JSONResponse, StreamingResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -852,6 +852,86 @@ async def match_poster(name):
     return poster
 
 
+@api_router.post("/reset")
+async def reset_config():
+    await db.config.update_one({"_id": CONFIG_ID}, {"$set": {k: "" for k in
+        ["torbox_api_key", "tmdb_api_key", "omdb_api_key", "rpdb_api_key", "fanart_api_key", "thetvdb_api_key"]}}, upsert=True)
+    _CACHE.clear()
+    return {"ok": True}
+
+
+@api_router.get("/warm/{media_type}/{tmdb_id}")
+async def warm(media_type: str, tmdb_id: int):
+    try:
+        m = await meta(media_type, tmdb_id)
+    except Exception:
+        return {"ok": False}
+    imdb = m.get("imdb_id")
+    if imdb:
+        doc = await get_config()
+        srcs = doc.get("sources", DEFAULT_SOURCES)
+
+        async def _bg():
+            try:
+                if media_type == "series":
+                    await build_sources(imdb, "series", 1, 1, srcs, m.get("title"), m.get("year"))
+                else:
+                    await build_sources(imdb, "movie", None, None, srcs, m.get("title"), m.get("year"))
+            except Exception:
+                pass
+        asyncio.create_task(_bg())
+    return {"ok": True, "imdb_id": imdb}
+
+
+ALLOWED_STREAM_HOSTS = ("tb-cdn.io", "torbox.app", "torbox.st", "cdn.torbox")
+
+
+async def probe_vcodec(src):
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            "ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+            "stream=codec_name", "-of", "default=nw=1:nk=1", src,
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
+        out, _ = await asyncio.wait_for(proc.communicate(), timeout=25)
+        return (out.decode().strip() or "").lower()
+    except Exception:
+        return ""
+
+
+@api_router.get("/stream/transcode")
+async def transcode(src: str, force: int = 0):
+    from urllib.parse import urlparse
+    host = urlparse(src).hostname or ""
+    if not any(h in host for h in ALLOWED_STREAM_HOSTS):
+        raise HTTPException(400, "Host not allowed")
+    vcodec = await probe_vcodec(src)
+    if vcodec in ("h264", "avc1") and not force:
+        vargs = ["-c:v", "copy"]
+    else:
+        vargs = ["-c:v", "libx264", "-preset", "ultrafast", "-crf", "24",
+                 "-vf", "scale=-2:720", "-maxrate", "6M", "-bufsize", "12M"]
+    cmd = ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", src,
+           "-map", "0:v:0", "-map", "0:a:0?", *vargs, "-c:a", "aac", "-b:a", "192k", "-ac", "2",
+           "-movflags", "frag_keyframe+empty_moov+default_base_moof", "-f", "mp4", "pipe:1"]
+    proc = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
+
+    async def gen():
+        try:
+            while True:
+                chunk = await proc.stdout.read(65536)
+                if not chunk:
+                    break
+                yield chunk
+        finally:
+            if proc.returncode is None:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+    return StreamingResponse(gen(), media_type="video/mp4",
+                             headers={"Cache-Control": "no-store", "Content-Disposition": "inline"})
+
+
 @api_router.get("/library")
 async def library():
     key = await get_torbox_key()
@@ -1061,6 +1141,21 @@ app.include_router(api_router)
 app.add_middleware(CORSMiddleware, allow_credentials=True,
                    allow_origins=os.environ.get("CORS_ORIGINS", "*").split(","),
                    allow_methods=["*"], allow_headers=["*"])
+
+
+@app.on_event("startup")
+async def _startup_warm():
+    async def bg():
+        await asyncio.sleep(3)
+        try:
+            keys = await get_keys()
+            if keys["tmdb"]:
+                await trending()
+            if keys["torbox"]:
+                await library()
+        except Exception as e:
+            logger.warning(f"startup warm failed: {e}")
+    asyncio.create_task(bg())
 
 
 @app.on_event("shutdown")

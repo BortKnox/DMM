@@ -10,9 +10,14 @@ export const BRAND = {
 
 const client = axios.create({ baseURL: API });
 
+export const transcodeUrl = (url, force = false) =>
+  `${API}/stream/transcode?src=${encodeURIComponent(url)}${force ? "&force=1" : ""}`;
+
 export const api = {
   config: () => client.get("/config").then((r) => r.data),
   updateSettings: (body) => client.post("/settings", body).then((r) => r.data),
+  resetKeys: () => client.post("/reset").then((r) => r.data),
+  warm: (type, id) => client.get(`/warm/${type}/${id}`).then((r) => r.data).catch(() => null),
   search: (q, page = 1) => client.get("/search", { params: { q, page } }).then((r) => r.data),
   trending: () => client.get("/trending").then((r) => r.data),
   discover: (type, page = 1) => client.get(`/discover/${type}`, { params: { page } }).then((r) => r.data),

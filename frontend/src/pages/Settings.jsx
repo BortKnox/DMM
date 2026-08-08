@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Key, CheckCircle2, XCircle, Save, Loader2, Server, Database, Zap } from "lucide-react";
+import { Key, CheckCircle2, XCircle, Save, Loader2, Server, Database, Zap, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
 
 const KEY_FIELDS = [
@@ -51,6 +51,18 @@ export default function Settings() {
       setTests({});
       qc.invalidateQueries();
     } catch { toast.error("Failed to save settings"); } finally { setSaving(false); }
+  };
+
+  const reset = async () => {
+    if (!window.confirm("Disconnect and erase all saved keys from this instance? You'll be asked to enter them again.")) return;
+    setSaving(true);
+    try {
+      await api.resetKeys();
+      toast.success("All keys erased — this instance is now signed out");
+      setVals({});
+      setTests({});
+      qc.invalidateQueries();
+    } catch { toast.error("Failed to reset"); } finally { setSaving(false); }
   };
 
   if (isLoading) return <div className="p-12 flex justify-center"><Loader2 className="animate-spin text-blue-500" /></div>;
@@ -124,10 +136,16 @@ export default function Settings() {
         </div>
       </div>
 
-      <button data-testid="settings-save-btn" onClick={save} disabled={saving}
-        className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 to-blue-400 px-6 py-3 text-sm font-bold text-white hover:brightness-110 transition-[filter] disabled:opacity-60">
-        {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Settings
-      </button>
+      <div className="flex items-center gap-3 flex-wrap">
+        <button data-testid="settings-save-btn" onClick={save} disabled={saving}
+          className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 to-blue-400 px-6 py-3 text-sm font-bold text-white hover:brightness-110 transition-[filter] disabled:opacity-60">
+          {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Save Settings
+        </button>
+        <button data-testid="settings-reset-btn" onClick={reset} disabled={saving}
+          className="inline-flex items-center gap-2 rounded-full border border-rose-500/40 bg-rose-500/10 px-5 py-3 text-sm font-semibold text-rose-300 hover:bg-rose-500/20 transition-colors disabled:opacity-60">
+          <Trash2 size={15} /> Disconnect &amp; erase keys
+        </button>
+      </div>
     </div>
   );
 }

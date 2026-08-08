@@ -1,0 +1,32 @@
+{
+  "summary": "Iteration 4 full re-test (backend + frontend) - all 8 pytest cases PASS. Backend: (1) /app/backend/.env contains no torbox/tmdb/omdb/rpdb/fanart/thetvdb keys and server.py has no hardcoded key literals - key-free shipping confirmed. (2) POST /api/reset returned {ok:true}, GET /api/config immediately showed needs_onboarding:true, torbox_connected:false, all keys_set:false; POST /api/settings re-seeded all 6 keys and needs_onboarding returned to false (keys restored, app fully functional). (3) GET /api/warm/movie/27205 returned {ok:true, imdb_id:'tt1375666'} in ~0.5s; subsequent GET /api/sources/tt1375666?media_type=movie&title=Inception&year=2010 returned 100+ cached sources quickly. (4) POST /api/torbox/resolve for hash 32415815a0b4621400688f0bf2966d7fd3435d93 returned a real https://nexus-220.cnam.tb-cdn.io/dld/... direct URL; GET /api/stream/transcode?src=<that url> returned HTTP 200 with content-type video/mp4 and MP4 ftyp/moof/mdat magic in the first ~512KB (ffmpeg streaming works). GET /api/stream/transcode?src=https://evil.com/x rejected with 400 (host allowlist enforced). Frontend Playwright (desktop 1920x1080): (a) onboarding-modal absent on home load (keys seeded, correct). (b) Hovering data-testid=media-card-969681 fires exactly 1 /api/warm/movie/969681 + 1 /api/meta/movie/969681 network call (warm-on-hover prefetch works). (c) On /title/movie/158852: 167 play-btn-XXX buttons found; clicking first opens player-modal within 1s; player-video, player-universal, player-external, player-close all present. Initial video src auto-fell-back to /api/stream/transcode (native video decode error triggered onError→universal=true auto-fallback, as designed in Player.jsx); clicking player-universal toggled src back to raw tb-cdn.io URL, so the Universal button correctly swaps between transcode and direct URLs. player-close closed the modal. (d) Settings: data-testid=settings-reset-btn present (NOT clicked); all 6 key inputs and all 6 test buttons present including settings-test-thetvdb (previously missing in iter3 - now added). (e) Search 'star wars': data-testid=page-2 present, click loads new results. (f) Library: lib-view-grid and lib-view-list present, 74 poster cards. Keys were re-seeded at end of run - config verified {needs_onboarding:false, torbox_connected:true, all 6 keys_set:true}.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_dmm_iter4.py",
+    "/app/test_reports/pytest/iter4_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now 1163 lines - continue to grow. Recommend splitting into routers (tmdb, torbox, indexers, stremio, config, streaming, test-key) to improve maintainability.",
+    "ALLOWED_STREAM_HOSTS uses substring match ('any(h in host)'), which correctly restricts to tb-cdn.io/torbox domains but would also match e.g. 'malicious-torbox.app.attacker.com'. Consider using endswith('.tb-cdn.io') / exact host suffix matching for defense in depth.",
+    "transcode endpoint: no auth or rate-limit - anyone with the public REACT_APP_BACKEND_URL can proxy-transcode any tb-cdn/torbox URL they craft. Acceptable for a personal app but worth noting.",
+    "Player.jsx auto-fallback is silent (universal toggles ON without any user notification). Consider a small toast/label like 'MKV detected — using Universal Playback' so users understand why the button changed state."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_dmm_iter4.py",
+    "/app/test_reports/iteration_4.json",
+    "/app/test_reports/pytest/iter4_results.xml"
+  ],
+  "success_rate": {"backend": "100% (8/8)", "frontend": "100%"},
+  "test_credentials": "No auth. Keys re-seeded post-reset. TorBox=66c801e2-7acc-4e3c-8c3e-56e9fe96e0f4, TMDB=4d5351f5984cb85ad38a5c5e4aa98b58, OMDb=cd351529, RPDB=t0-free-rpdb-blocks, Fanart=932971492312bf873aa870c259acb4ebbb, TheTVDB=8d8886b5-f8f1-4c25-beb9-4898802606f6. Verified config.torbox_connected=true, keys_set all true after test run.",
+  "seed_data_creation": "No new library items added. Re-seeded all 6 API keys into Mongo config after reset test (mandatory per review request).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iter4 tests at /app/backend/tests/test_dmm_iter4.py (8 cases, all passing). Player uses auto-fallback: initial video src may start as /api/stream/transcode when the native decode fails on MKV (Player.jsx onError→universal=true). Toggling player-universal swaps between raw tb-cdn.io URL and transcode URL. Reset endpoint verified but ALWAYS re-seed via POST /api/settings afterwards or app breaks. Frontend reset button (settings-reset-btn) exists but must NOT be clicked to keep app usable. TheTVDB now has a Test button (previously flagged in iter3, now resolved). /api/warm returns very fast (<1s). ffmpeg 5.1 transcode works, returns fragmented MP4.",
+  "rca of the issue": "No issues found this iteration."
+}

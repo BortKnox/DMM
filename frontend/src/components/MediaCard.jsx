@@ -1,10 +1,19 @@
 import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Star, Film, Tv } from "lucide-react";
+import { api } from "@/lib/api";
 
 export function MediaCard({ item, index = 0 }) {
+  const qc = useQueryClient();
+  const warm = () => {
+    qc.prefetchQuery({ queryKey: ["meta", item.media_type, String(item.id)], queryFn: () => api.meta(item.media_type, item.id), staleTime: 60000 });
+    api.warm(item.media_type, item.id);
+  };
   return (
     <Link
       to={`/title/${item.media_type}/${item.id}`}
+      onMouseEnter={warm}
+      onFocus={warm}
       data-testid={`media-card-${item.id}`}
       className="group relative block fade-up"
       style={{ animationDelay: `${Math.min(index * 40, 400)}ms` }}
