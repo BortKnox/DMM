@@ -1,0 +1,34 @@
+{
+  "summary": "Iteration 3 full re-test: 10/10 backend pytest cases pass. New: /api/config lists 7 available_sources (apibay, therarbg, torrentgalaxy, eztv, limetorrents, torrentdownloads, nyaa) and 6 keys_set; /api/search?q=star wars&page=1 returns total_pages=13/total_results=257 with 'Star Wars' (1977) + prequel in top 5; /api/search page=2 returns a different result set (Attack of the Clones etc); /api/discover/movie?page=2 paginates; /api/sources/tt1375666 for Inception 2010 returns 100+ sources from therarbg + apibay + limetorrents + torrentdownloads with cached>=1; POST /api/test-key torbox=ok:true, tmdb bad=ok:false, tmdb good=ok:true; /api/library returns 74 items with 'library' key, size_h/state/progress/files/poster fields (most non-null); POST /api/torbox/resolve returns real tb-cdn.io direct URL; /api/stremio manifest+stream still work. Frontend Playwright (desktop 1920x4000): sidebar 'DEBRID MEDIA MANAGER', footer 'Debrid Media Manager · by Bort Knox', nav 'Add Plugin' (no 'Stremio' text anywhere in visible UI on Home, Search, Detail, Library, Settings or Add Plugin pages). Search 'star wars' shows results grid + pagination component with data-testids page-1/page-2/page-3/page-next/page-prev and '257 results · page 2 of 13'; page-2 click loads a different result set. /browse/movie has grid + pagination; next changes page. Detail (movie/158852): sort-select present with all 5 options [Best match, Most seeders, Largest size, Smallest size, Resolution]; switching to 'Largest size' reorders sources (2160p→1080p+ larger sizes first); cached-only-toggle, view-grid, view-list all present; all Add buttons labelled 'Add to Library' (no plain 'Add'); 167 play-btn-XXX buttons found; clicking a cached play-btn opens data-testid='player-modal' with data-testid='player-video' whose src is set to https://nexus-220.cnam.tb-cdn.io/dld/... TorBox CDN URL within <1s, plus data-testid='player-external' link ('Open externally') and data-testid='player-close'. Library page: grid view by default with 74 poster cards, lib-view-grid/lib-view-list toggles work, each card has library-play-{id} + library-delete-{id} (74 each) - not deleted. Settings: all 6 key inputs (settings-key-{torbox,tmdb,omdb,rpdb,fanart,thetvdb}) present; 5 Test buttons (settings-test-{torbox,tmdb,omdb,rpdb,fanart}) present - thetvdb Test button is intentionally omitted in code (testable:false). Entering valid TMDB key + clicking settings-test-tmdb shows a Saved-style success indicator; Save shows 'Saved — 1 key updated & stored' toast. All 7 source-toggle-{apibay,therarbg,torrentgalaxy,eztv,limetorrents,torrentdownloads,nyaa} present. Add Plugin page contains no 'Stremio' word; shows steps, Included Sources chips (7), and Generate Plugin Link button.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Settings", "issues": ["TheTVDB API key input has no Test button (testable:false in code). Review request expects a Test button for all 6 keys. Since TheTVDB uses a JWT-login flow (POST /login with apikey+pin), consider adding a Test button that performs the login and reports ok/fail so the UI is consistent."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_dmm_iter3.py",
+    "/app/backend/tests/test_dmm_iter2.py",
+    "/app/backend/tests/test_dmm_api.py",
+    "/app/test_reports/pytest/iter3_results.xml"
+  ],
+  "action_items": [
+    "Optional: add a Test button + backend validation for TheTVDB key (POST https://api4.thetvdb.com/v4/login) so all 6 key rows are consistent per the iter3 requirement.",
+    "Optional: server.py is now >1000 lines - consider splitting into routers (tmdb, torbox, indexers, stremio, config, test-key)."
+  ],
+  "critical_code_review_comments": [
+    "Settings.jsx keeps TheTVDB with testable:false while every other key is testable - inconsistent with iter3 requirement 'API key inputs need a Test button + clear success/fail feedback'. Add a validator (POST /login with apikey) or clearly disable/annotate the row.",
+    "server.py: 1066 lines - split into modules; also consider background pre-warm of first /api/library and /api/sources call to remove the 6-8s cold latency.",
+    "In-site Player: only shows a spinner if the resolve fails silently (uncached items). A 502 from /torbox/resolve on the first click (uncached) surfaces as an infinite spinner. Consider showing a retry/timeout state and disabling Play on non-cached sources or gating with a 'Cache & Play' CTA."
+  ],
+  "updated_files": ["/app/backend/tests/test_dmm_iter3.py", "/app/test_reports/iteration_3.json", "/app/test_reports/pytest/iter3_results.xml"],
+  "success_rate": {"backend": "100% (10/10)", "frontend": "~98% (1 minor: missing thetvdb test button by design)"},
+  "test_credentials": "No auth. Keys pre-seeded in Mongo config; TorBox=66c801e2-7acc-4e3c-8c3e-56e9fe96e0f4, TMDB=4d5351f5984cb85ad38a5c5e4aa98b58. Config collection NOT cleared.",
+  "seed_data_creation": "Idempotently re-added cached hash 32415815a0b4621400688f0bf2966d7fd3435d93 (Tomorrowland) to warm library for poster-enrichment test. No deletions.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iter3 tests at /app/backend/tests/test_dmm_iter3.py (10 cases). /api/library returns {'library':[...]} (not 'items'). /api/sources returns {'sources':[...]} or a bare list depending on caller. Player only sets real src when the underlying source is cached; uncached play may 502 and hang the spinner (see UX note). TheTVDB is the only key row without a Test button by design (testable:false in Settings.jsx line 13). Do NOT clear Mongo config. First cold /api/sources and /api/library still slow ~6-8s.",
+  "rca of the issue": "TheTVDB missing Test button: Settings.jsx has testable:false for the thetvdb row (line 13), which suppresses rendering of settings-test-thetvdb. Fix: implement a POST /api/test-key handler for service='thetvdb' that calls TheTVDB /v4/login and set testable:true. Player spinner on uncached sources: /api/torbox/resolve returns 502 for non-cached hashes; Player.jsx does not surface the error, so the spinner remains. Fix: catch non-200 response, show error state + retry, or disable Play button on non-cached rows."
+}

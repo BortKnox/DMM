@@ -13,38 +13,38 @@ function Badge({ children, tone = "default" }) {
   return <span className={`inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-semibold ${tones[tone]}`}>{children}</span>;
 }
 
-function useSourceActions(source, mediaContext) {
+function useActions(source, mediaContext, onPlay) {
   const [busy, setBusy] = useState(null);
   const [added, setAdded] = useState(false);
   const q = source.quality || {};
 
-  const doResolve = async () => {
+  const doPlay = async () => {
+    if (onPlay) return onPlay(source);
     setBusy("play");
     try {
       const res = await api.resolve({ hash: source.hash, name: source.name, season: mediaContext?.season ?? null, episode: mediaContext?.episode ?? null });
       window.open(res.url, "_blank");
-      toast.success("Stream ready — opening player");
     } catch { toast.error("Could not resolve stream"); } finally { setBusy(null); }
   };
   const doAdd = async () => {
     setBusy("add");
     try {
       const res = await api.add({ hash: source.hash, name: source.name });
-      if (res.success) { setAdded(true); toast.success(res.detail || "Added to TorBox"); }
+      if (res.success) { setAdded(true); toast.success(res.detail || "Added to your Library"); }
       else toast.error(res.detail || "Failed to add");
-    } catch { toast.error("Failed to add to TorBox"); } finally { setBusy(null); }
+    } catch { toast.error("Failed to add to Library"); } finally { setBusy(null); }
   };
   const copyMagnet = () => { navigator.clipboard.writeText(source.magnet); toast.success("Magnet copied"); };
-  return { busy, added, q, doResolve, doAdd, copyMagnet };
+  return { busy, added, q, doPlay, doAdd, copyMagnet };
 }
 
-export default function SourceRow({ source, mediaContext, compact = false }) {
-  const { busy, added, q, doResolve, doAdd, copyMagnet } = useSourceActions(source, mediaContext);
+export default function SourceRow({ source, mediaContext, compact = false, onPlay }) {
+  const { busy, added, q, doPlay, doAdd, copyMagnet } = useActions(source, mediaContext, onPlay);
   const id8 = source.hash.slice(0, 8);
 
   const badges = (
     <>
-      {source.cached && <Badge tone="cached"><Zap size={10} className="mr-0.5 fill-emerald-300" /> Cached</Badge>}
+      {source.cached && <Badge tone="cached"><Zap size={10} className="mr-0.5 fill-emerald-300" /> Instant</Badge>}
       {q.resolution && <Badge tone="res">{q.resolution}</Badge>}
       {q.source && <Badge>{q.source}</Badge>}
       {q.codec && <Badge>{q.codec}</Badge>}
@@ -65,11 +65,11 @@ export default function SourceRow({ source, mediaContext, compact = false }) {
           <span className="uppercase">{source.tracker}</span>
         </div>
         <div className="flex items-center gap-1.5 mt-auto pt-1">
-          <button data-testid={`play-btn-${id8}`} onClick={doResolve} disabled={busy === "play"}
+          <button data-testid={`play-btn-${id8}`} onClick={doPlay} disabled={busy === "play"}
             className="flex-1 inline-flex items-center justify-center gap-1 rounded-full bg-gradient-to-r from-blue-600 to-blue-400 px-2 py-1.5 text-[11px] font-semibold text-white hover:brightness-110 transition-[filter] disabled:opacity-60">
             {busy === "play" ? <Loader2 size={12} className="animate-spin" /> : <Play size={11} className="fill-white" />} Play
           </button>
-          <button data-testid={`add-btn-${id8}`} onClick={doAdd} disabled={busy === "add" || added}
+          <button data-testid={`add-btn-${id8}`} onClick={doAdd} disabled={busy === "add" || added} title="Add to Library"
             className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 p-1.5 text-slate-300 hover:bg-white/10 transition-colors disabled:opacity-60">
             {added ? <CheckCircle2 size={13} className="text-emerald-400" /> : busy === "add" ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
           </button>
@@ -94,7 +94,7 @@ export default function SourceRow({ source, mediaContext, compact = false }) {
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        <button data-testid={`play-btn-${id8}`} onClick={doResolve} disabled={busy === "play"}
+        <button data-testid={`play-btn-${id8}`} onClick={doPlay} disabled={busy === "play"}
           className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-blue-600 to-blue-400 px-3.5 py-2 text-xs font-semibold text-white hover:brightness-110 transition-[filter] disabled:opacity-60">
           {busy === "play" ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} className="fill-white" />}
           {source.cached ? "Play" : "Cache & Play"}
@@ -102,7 +102,7 @@ export default function SourceRow({ source, mediaContext, compact = false }) {
         <button data-testid={`add-btn-${id8}`} onClick={doAdd} disabled={busy === "add" || added}
           className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-white/10 transition-colors disabled:opacity-60">
           {added ? <CheckCircle2 size={13} className="text-emerald-400" /> : busy === "add" ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
-          {added ? "Added" : "Add"}
+          {added ? "Added" : "Add to Library"}
         </button>
         <button data-testid={`copy-btn-${id8}`} onClick={copyMagnet}
           className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 p-2 text-slate-400 hover:text-slate-100 hover:bg-white/10 transition-colors" title="Copy magnet">

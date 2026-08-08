@@ -51,7 +51,10 @@ DEFAULT_SOURCES = ["apibay", "therarbg", "eztv"]
 AVAILABLE_SOURCES = [
     {"id": "apibay", "name": "The Pirate Bay", "types": ["movie", "series"], "desc": "Huge general index, IMDB-matched"},
     {"id": "therarbg", "name": "TheRARBG", "types": ["movie", "series"], "desc": "RARBG successor, rich releases"},
+    {"id": "torrentgalaxy", "name": "TorrentGalaxy", "types": ["movie", "series"], "desc": "Broad movie & TV catalog"},
     {"id": "eztv", "name": "EZTV", "types": ["series"], "desc": "Best for TV episodes & packs"},
+    {"id": "limetorrents", "name": "LimeTorrents", "types": ["movie", "series"], "desc": "Title search, wide coverage"},
+    {"id": "torrentdownloads", "name": "TorrentDownloads", "types": ["movie", "series"], "desc": "Title search, older & rare"},
     {"id": "nyaa", "name": "Nyaa", "types": ["series", "movie"], "desc": "Anime & Asian media"},
 ]
 
@@ -258,7 +261,82 @@ async def idx_nyaa(http, imdb_id, title=None, season=None, episode=None, **kw):
 INDEXERS = {"apibay": idx_apibay, "therarbg": idx_therarbg, "eztv": idx_eztv, "nyaa": idx_nyaa}
 
 
-async def gather_sources(imdb_id, media_type, season=None, episode=None, sources=None, title=None):
+async def idx_torrentgalaxy(http, imdb_id, media_type="movie", **kw):
+    out = []
+    cat = "TV" if media_type == "series" else "Movies"
+    try:
+        r = await http.get(f"https://torrentgalaxy.one/get-posts/keywords:{imdb_id}:category:{cat}/?format=json", timeout=15)
+        for it in r.json().get("results", []):
+            h = it.get("h")
+            if not h:
+                continue
+            out.append({"hash": h.lower(), "name": it.get("n", ""),
+                        "size": int(it.get("s", 0) or 0), "seeders": int(it.get("se", 0) or 0),
+                        "tracker": "TGx", "source_indexer": "torrentgalaxy"})
+    except Exception as e:
+        logger.warning(f"torrentgalaxy failed: {e}")
+    return out
+
+
+def _title_query(title, year, season=None, episode=None):
+    if not title:
+        return None
+    if season is not None and episode is not None:
+        return f"{title} S{int(season):02d}E{int(episode):02d}"
+    if year:
+        return f"{title} {year}"
+    return title
+
+
+async def idx_limetorrents(http, imdb_id, title=None, year=None, season=None, episode=None, **kw):
+    out = []
+    q = _title_query(title, year, season, episode)
+    if not q:
+        return out
+    try:
+        r = await http.get(f"https://www.limetorrents.lol/searchrss/{quote(q)}/", timeout=15)
+        for it in re.findall(r"<item>(.*?)</item>", r.text, re.S):
+            enc = re.search(r"itorrents\.net/torrent/([A-Fa-f0-9]{40})", it)
+            t = re.search(r"<title>([^<]+)</title>", it)
+            sz = re.search(r"<size>(\d+)</size>", it)
+            se = re.search(r"Seeds:\s*(\d+)", it)
+            if not enc:
+                continue
+            out.append({"hash": enc.group(1).lower(), "name": htmllib.unescape(t.group(1)) if t else q,
+                        "size": int(sz.group(1)) if sz else 0, "seeders": int(se.group(1)) if se else 0,
+                        "tracker": "Lime", "source_indexer": "limetorrents"})
+    except Exception as e:
+        logger.warning(f"limetorrents failed: {e}")
+    return out
+
+
+async def idx_torrentdownloads(http, imdb_id, title=None, year=None, season=None, episode=None, **kw):
+    out = []
+    q = _title_query(title, year, season, episode)
+    if not q:
+        return out
+    try:
+        r = await http.get(f"https://www.torrentdownloads.pro/rss.xml?type=search&search={quote(q)}", timeout=15)
+        for it in re.findall(r"<item>(.*?)</item>", r.text, re.S):
+            h = re.search(r"<info_hash>([A-Fa-f0-9]{40})</info_hash>", it)
+            t = re.search(r"<title>\s*([^<]+?)\s*</title>", it)
+            sz = re.search(r"<size>(\d+)</size>", it)
+            se = re.search(r"<seeders>(\d+)</seeders>", it)
+            if not h:
+                continue
+            out.append({"hash": h.group(1).lower(), "name": htmllib.unescape(t.group(1)) if t else q,
+                        "size": int(sz.group(1)) if sz else 0, "seeders": int(se.group(1)) if se else 0,
+                        "tracker": "TD", "source_indexer": "torrentdownloads"})
+    except Exception as e:
+        logger.warning(f"torrentdownloads failed: {e}")
+    return out
+
+
+INDEXERS.update({"torrentgalaxy": idx_torrentgalaxy, "limetorrents": idx_limetorrents,
+                 "torrentdownloads": idx_torrentdownloads})
+
+
+async def gather_sources(imdb_id, media_type, season=None, episode=None, sources=None, title=None, year=None):
     sources = sources or DEFAULT_SOURCES
     async with httpx.AsyncClient(follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}) as http:
         tasks = []
@@ -269,7 +347,7 @@ async def gather_sources(imdb_id, media_type, season=None, episode=None, sources
             meta = next((s for s in AVAILABLE_SOURCES if s["id"] == sid), None)
             if meta and media_type not in meta["types"]:
                 continue
-            tasks.append(fn(http, imdb_id, media_type=media_type, season=season, episode=episode, title=title))
+            tasks.append(fn(http, imdb_id, media_type=media_type, season=season, episode=episode, title=title, year=year))
         results = await asyncio.gather(*tasks, return_exceptions=True)
     merged = {}
     for res in results:
@@ -304,14 +382,14 @@ async def check_cached(hashes, key):
     return cached
 
 
-async def build_sources(imdb_id, media_type, season=None, episode=None, sources=None, title=None):
-    ck = ("src", imdb_id, media_type, season, episode, tuple(sorted(sources or [])), title)
+async def build_sources(imdb_id, media_type, season=None, episode=None, sources=None, title=None, year=None):
+    ck = ("src", imdb_id, media_type, season, episode, tuple(sorted(sources or [])), title, year)
     cached_res = cache_get(ck)
     key = await get_torbox_key()
     if cached_res is not None:
         items = cached_res
     else:
-        items = await gather_sources(imdb_id, media_type, season, episode, sources, title)
+        items = await gather_sources(imdb_id, media_type, season, episode, sources, title, year)
         cache_set(ck, items, 900)
     tb_cached = await check_cached([i["hash"] for i in items], key)
     out = []
@@ -483,6 +561,11 @@ class AddIn(BaseModel):
     name: str
 
 
+class TestKeyIn(BaseModel):
+    service: str
+    key: str
+
+
 class BulkAddIn(BaseModel):
     items: List[AddIn]
 
@@ -513,14 +596,24 @@ async def config():
         else:
             try:
                 async with httpx.AsyncClient() as http:
-                    r = await http.get(f"{TORBOX_API}/user/me", headers=tb_headers(keys["torbox"]), timeout=15)
+                    r = await http.get(f"{TORBOX_API}/user/me", headers=tb_headers(keys["torbox"]), timeout=20)
                     j = r.json()
                     connected = bool(j.get("success"))
                     d = j.get("data") or {}
                     account = {"email": d.get("email"), "premium": d.get("plan") not in (0, None)}
-                cache_set(("tbconn", keys["torbox"]), (connected, account), 60)
+                if connected:
+                    cache_set(("tbconn", keys["torbox"]), (connected, account), 300)
+                    cache_set(("tbconn_last", keys["torbox"]), (connected, account), 86400)
+                else:
+                    last = cache_get(("tbconn_last", keys["torbox"]))
+                    if last:
+                        connected, account = last
             except Exception:
-                connected = False
+                last = cache_get(("tbconn_last", keys["torbox"]))
+                if last:
+                    connected, account = last
+                else:
+                    connected = False
     return {
         "torbox_connected": connected,
         "torbox_account": account,
@@ -530,6 +623,42 @@ async def config():
         "sources": doc.get("sources", DEFAULT_SOURCES),
         "available_sources": AVAILABLE_SOURCES,
     }
+
+
+@api_router.post("/test-key")
+async def test_key(body: TestKeyIn):
+    s, k = body.service, body.key.strip()
+    if not k:
+        return {"ok": False, "message": "Empty key"}
+    try:
+        async with httpx.AsyncClient() as http:
+            if s == "torbox":
+                r = await http.get(f"{TORBOX_API}/user/me", headers=tb_headers(k), timeout=15)
+                j = r.json()
+                if j.get("success"):
+                    return {"ok": True, "message": f"Connected: {(j.get('data') or {}).get('email', 'ok')}"}
+                return {"ok": False, "message": "Invalid TorBox key"}
+            if s == "tmdb":
+                r = await http.get(f"{TMDB_API}/authentication", params={"api_key": k}, timeout=15)
+                if r.status_code == 200 and r.json().get("success"):
+                    return {"ok": True, "message": "TMDB key valid"}
+                r2 = await http.get(f"{TMDB_API}/movie/550", params={"api_key": k}, timeout=15)
+                return {"ok": r2.status_code == 200, "message": "TMDB key valid" if r2.status_code == 200 else "Invalid TMDB key"}
+            if s == "omdb":
+                j = (await http.get(f"https://www.omdbapi.com/?apikey={k}&i=tt1375666", timeout=12)).json()
+                ok = j.get("Response") == "True"
+                return {"ok": ok, "message": "OMDb valid" if ok else j.get("Error", "Invalid OMDb key")}
+            if s == "rpdb":
+                r = await http.get(f"https://api.ratingposterdb.com/{k}/imdb/poster-default/tt1375666.jpg", timeout=12)
+                return {"ok": r.status_code == 200, "message": "RPDB valid" if r.status_code == 200 else "Invalid RPDB key"}
+            if s == "fanart":
+                r = await http.get(f"https://webservice.fanart.tv/v3/movies/tt1375666?api_key={k}", timeout=12)
+                return {"ok": r.status_code == 200, "message": "Fanart valid" if r.status_code == 200 else "Invalid Fanart key"}
+            if s == "thetvdb":
+                return {"ok": len(k) > 8, "message": "Saved (not verified)"}
+    except Exception as e:
+        return {"ok": False, "message": str(e)[:80]}
+    return {"ok": False, "message": "Unknown service"}
 
 
 @api_router.post("/settings")
@@ -548,23 +677,22 @@ async def update_settings(body: SettingsIn):
 
 
 @api_router.get("/search")
-async def search(q: str = Query(...)):
+async def search(q: str = Query(...), page: int = 1):
+    data = await tmdb_get("/search/multi", {"query": q, "page": page, "include_adult": "false"})
     seen, items = set(), []
-    for page in (1, 2):
-        data = await tmdb_get("/search/multi", {"query": q, "page": page, "include_adult": "false"})
-        for it in data.get("results", []):
-            if it.get("media_type") not in ("movie", "tv"):
-                continue
-            m = map_tmdb_item(it)
-            if not m["poster"] or m["id"] in seen:
-                continue
-            # filter obscure fan-made / low-signal entries
-            if m["votes"] < 5 and m["popularity"] < 3:
-                continue
-            seen.add(m["id"])
-            items.append(m)
+    for it in data.get("results", []):
+        if it.get("media_type") not in ("movie", "tv"):
+            continue
+        m = map_tmdb_item(it)
+        if not m["poster"] or m["id"] in seen:
+            continue
+        if m["votes"] < 3 and m["popularity"] < 2:
+            continue
+        seen.add(m["id"])
+        items.append(m)
     items.sort(key=lambda x: x["popularity"], reverse=True)
-    return {"results": items}
+    return {"results": items, "page": page, "total_pages": min(data.get("total_pages", 1), 500),
+            "total_results": data.get("total_results", len(items))}
 
 
 @api_router.get("/trending")
@@ -575,16 +703,16 @@ async def trending():
 
 
 @api_router.get("/discover/{media_type}")
-async def discover(media_type: str):
+async def discover(media_type: str, page: int = 1):
     mt = "tv" if media_type == "series" else "movie"
-    data = await tmdb_get(f"/{mt}/popular")
+    data = await tmdb_get(f"/{mt}/popular", {"page": page})
     items = []
     for it in data.get("results", []):
         it["media_type"] = mt
         m = map_tmdb_item(it)
         if m["poster"]:
             items.append(m)
-    return {"results": items}
+    return {"results": items, "page": page, "total_pages": min(data.get("total_pages", 1), 500)}
 
 
 @api_router.get("/meta/{media_type}/{tmdb_id}")
@@ -630,9 +758,9 @@ async def season_eps(tmdb_id: int, season_number: int):
 
 @api_router.get("/sources/{imdb_id}")
 async def sources(imdb_id: str, media_type: str = "movie", season: Optional[int] = None,
-                  episode: Optional[int] = None, title: Optional[str] = None):
+                  episode: Optional[int] = None, title: Optional[str] = None, year: Optional[str] = None):
     doc = await get_config()
-    out = await build_sources(imdb_id, media_type, season, episode, doc.get("sources", DEFAULT_SOURCES), title)
+    out = await build_sources(imdb_id, media_type, season, episode, doc.get("sources", DEFAULT_SOURCES), title, year)
     return {"sources": out, "total": len(out), "cached_count": sum(1 for o in out if o["cached"])}
 
 
@@ -696,6 +824,32 @@ async def resolve(body: ResolveIn):
     return {"url": url}
 
 
+_poster_sem = asyncio.Semaphore(20)
+
+async def match_poster(name):
+    ck = ("poster", (name or "")[:70])
+    hit = cache_get(ck)
+    if hit is not None:
+        return hit
+    clean = re.sub(r"[._]", " ", name or "")
+    clean = re.split(r"\b(19|20)\d{2}\b|\b(1080p|720p|2160p|480p|s\d{1,2}|complete|season)\b", clean, flags=re.I)[0].strip()
+    poster = None
+    try:
+        async with _poster_sem:
+            d = await tmdb_get("/search/multi", {"query": clean[:60]})
+        for c in d.get("results", []):
+            if c.get("media_type") not in ("movie", "tv"):
+                continue
+            m = map_tmdb_item(c)
+            if m["poster"]:
+                poster = m["poster"]
+                break
+    except Exception:
+        pass
+    cache_set(ck, poster, 86400)
+    return poster
+
+
 @api_router.get("/library")
 async def library():
     key = await get_torbox_key()
@@ -714,6 +868,13 @@ async def library():
                     "download_present": it.get("download_present"), "created_at": it.get("created_at"),
                     "files": [{"id": f.get("id"), "name": f.get("name"), "size": f.get("size"),
                                "size_h": human_size(f.get("size"))} for f in (it.get("files") or [])]})
+    try:
+        if await get_tmdb_key():
+            posters = await asyncio.gather(*[match_poster(o["name"]) for o in out], return_exceptions=True)
+            for o, p in zip(out, posters):
+                o["poster"] = p if not isinstance(p, Exception) else None
+    except Exception as e:
+        logger.warning(f"library poster enrich failed: {e}")
     return {"library": out, "total": len(out)}
 
 

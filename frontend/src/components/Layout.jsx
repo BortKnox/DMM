@@ -10,7 +10,7 @@ const navItems = [
   { to: "/browse/movie", label: "Movies", icon: Clapperboard },
   { to: "/browse/series", label: "TV Shows", icon: Tv },
   { to: "/library", label: "Library", icon: Library },
-  { to: "/stremio", label: "Stremio Addon", icon: Puzzle },
+  { to: "/stremio", label: "Add Plugin", icon: Puzzle },
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -39,7 +39,7 @@ export default function Layout({ children }) {
           <img src={BRAND.icon} alt="DMM" className="w-10 h-10 rounded-lg object-cover ring-1 ring-white/10" />
           <div className="leading-tight">
             <div className="font-heading font-extrabold text-lg metallic-text tracking-tight">DMM</div>
-            <div className="text-[10px] uppercase tracking-[0.25em] text-slate-500">Media Manager</div>
+            <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Debrid Media Manager</div>
           </div>
         </Link>
 
@@ -76,6 +76,7 @@ export default function Layout({ children }) {
                 : "Not connected"}
             </div>
           </div>
+          <div className="mt-3 text-center text-[10px] text-slate-600">Debrid Media Manager · by Bort Knox</div>
         </div>
       </aside>
 
@@ -104,7 +105,7 @@ export default function Layout({ children }) {
               data-testid="header-stremio-btn"
               className="hidden sm:inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 to-blue-400 px-4 py-2 text-sm font-semibold text-white hover:brightness-110 transition-[filter] shadow-[0_4px_20px_rgba(59,130,246,0.35)]"
             >
-              <Sparkles size={15} /> Add to Stremio
+              <Sparkles size={15} /> Add Plugin
             </a>
           </div>
         </header>
