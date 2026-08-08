@@ -45,11 +45,19 @@ Redesign the "unprofessional" debridmediamanager.com into a sleek, premium app f
 - Verified: 100% backend (iter1 17 + iter2 9 + iter3 10) + ~98% frontend.
 
 ## Backlog / Remaining (P1/P2)
-- P1: Background pre-warm of first /library & /sources to remove ~6-8s cold latency.
+
+### Iteration 4
+- **Instant loading**: warm-on-hover (media cards prefetch meta + pre-scrape sources in background) + backend startup warm of trending & library, so opening a title is snappy.
+- **Key-free shipping confirmed**: no keys in code or `.env` (only in DB); added Settings "Disconnect & erase keys" + first-run Onboarding. Verified reset→onboarding→re-seed cycle.
+- **Universal Playback**: in-house ffmpeg transcode endpoint (`/api/stream/transcode`, host-allowlisted to tb-cdn/torbox) — remuxes h264 or transcodes HEVC→h264 720p to browser-playable fragmented MP4. Player has a Universal toggle + auto-fallback when native decode fails.
+- Verified 100% backend (iter4 8/8) + 100% frontend.
+- NOTE: ffmpeg is a SYSTEM dependency (installed via apt) — a deployment must include ffmpeg for Universal Playback.
+
+## Older Backlog (P1/P2)
 - P2: Trakt Sync (needs Trakt app client_id/secret — OAuth).
 - P2: OpenRouter AI search (LLM integration).
-- P2: Split server.py (>1000 lines) into routers; MDBList lists import.
-- Note: TheTVDB isn't wired into any feature yet; the provided key fails v4 login (legacy/pin key) — Test button reports this honestly.
+- P2: Split server.py (~1160 lines) into routers.
+- Note: TheTVDB key the user supplied fails v4 login (legacy/pin key); Test button reports honestly. Not wired into features.
 
 ## Next Tasks
 - Address first-load latency and connection-status flakiness if user reports it.

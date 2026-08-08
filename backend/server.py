@@ -883,7 +883,12 @@ async def warm(media_type: str, tmdb_id: int):
     return {"ok": True, "imdb_id": imdb}
 
 
-ALLOWED_STREAM_HOSTS = ("tb-cdn.io", "torbox.app", "torbox.st", "cdn.torbox")
+ALLOWED_STREAM_HOSTS = ("tb-cdn.io", "torbox.app", "torbox.st")
+
+
+def _host_allowed(host: str) -> bool:
+    host = (host or "").lower()
+    return any(host == a or host.endswith("." + a) for a in ALLOWED_STREAM_HOSTS)
 
 
 async def probe_vcodec(src):
@@ -902,7 +907,7 @@ async def probe_vcodec(src):
 async def transcode(src: str, force: int = 0):
     from urllib.parse import urlparse
     host = urlparse(src).hostname or ""
-    if not any(h in host for h in ALLOWED_STREAM_HOSTS):
+    if not _host_allowed(host):
         raise HTTPException(400, "Host not allowed")
     vcodec = await probe_vcodec(src)
     if vcodec in ("h264", "avc1") and not force:
