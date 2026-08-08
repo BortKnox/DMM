@@ -20,21 +20,24 @@ Redesign the "unprofessional" debridmediamanager.com into a sleek, premium app f
 - Stremio addon with per-user manifest (embeds key), streams + library catalog + meta.
 
 ## Implemented (2026-06)
-- Discover/home (trending hero + popular grid), Movies & TV browse.
-- Global TMDB search + results grid.
-- Title detail: hero, metadata, season/episode selectors, sources list with cached badges, quality parsing (res/source/codec/HDR/audio), regex filter, cached-only toggle, resolution chips. Actions: Play (Cache & Play if uncached → resolves TorBox direct link), Add to TorBox, Copy magnet.
-- Library page: TorBox mylist with status/progress, Play (largest video file), Delete.
-- Settings: TorBox connection status, API key override, indexer source toggles.
-- Stremio Addon page: source selection, manifest generation, Install to Stremio (stremio://) + Open Stremio Web + copy URL.
-- Stremio backend: manifest.json, stream (cached-first sorted, resolve-on-click redirect), catalog (TorBox library), meta.
-- Verified: 100% backend (17 pytest) + 100% frontend flows.
+### Iteration 1
+- Discover/home, Movies & TV browse, global TMDB search, title detail with sources + cached badges, Library, Settings, Stremio addon (manifest/stream/catalog/meta).
+
+### Iteration 2
+- **Community-ready keys**: NO keys shipped in code/.env. All keys (TorBox, TMDB, + optional OMDb/RPDB/Fanart/TheTVDB) stored per-instance in Mongo `config`, entered via Onboarding modal (first run) or Settings. Preview DB is seeded at runtime.
+- **All reachable indexers**: apibay (TPB), TheRARBG, EZTV, Nyaa (anime, toggle). Merged + deduped per source toggles.
+- **Search relevance fixed**: TMDB multi (2 pages), popularity-sorted, obscure/low-vote filtered. "Star wars" now returns the full saga incl. prequels.
+- **Speed**: TTL cache (sources 15min, meta 1h, TorBox connection 60s). Second loads are instant.
+- **Enrichment**: OMDb RT/Metacritic/IMDb score badges, RPDB rating-baked posters, Fanart logos on hero.
+- **Sources UX**: list + compact grid view toggle, all results shown (no pagination), minimal filtering (regex, cached-only, resolution chips).
+- **Bulk**: one-tap "Cache Season" + /api/torbox/bulk-add.
+- Verified: 100% backend (iter1 17 + iter2 9) + 100% frontend.
 
 ## Backlog / Remaining (P1/P2)
-- P1: Warm/prefetch source cache on trending to cut first-load latency (~5-8s cold).
-- P1: Sidebar TorBox status occasionally shows "Not connected" if user/me call is slow — add short-lived cache/retry.
-- P2: More indexers (YTS, Usenet via TorBox usenet API) as additional toggle sources.
-- P2: Trakt/watchlist integration, "recently added" library sorting, genres browse.
-- P2: Split server.py into routers (tmdb/torbox/indexers/stremio).
+- P1: Background prefetch on trending/hero to kill first-open cold latency.
+- P2: Trakt Sync (needs a Trakt app client_id/secret from user — OAuth).
+- P2: OpenRouter AI-powered search (LLM via integration).
+- P2: MDBList lists import; split server.py into routers.
 
 ## Next Tasks
 - Address first-load latency and connection-status flakiness if user reports it.
