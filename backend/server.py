@@ -655,7 +655,9 @@ async def test_key(body: TestKeyIn):
                 r = await http.get(f"https://webservice.fanart.tv/v3/movies/tt1375666?api_key={k}", timeout=12)
                 return {"ok": r.status_code == 200, "message": "Fanart valid" if r.status_code == 200 else "Invalid Fanart key"}
             if s == "thetvdb":
-                return {"ok": len(k) > 8, "message": "Saved (not verified)"}
+                r = await http.post("https://api4.thetvdb.com/v4/login", json={"apikey": k}, timeout=15)
+                ok = r.status_code == 200 and (r.json().get("status") == "success")
+                return {"ok": ok, "message": "TheTVDB key valid" if ok else "Invalid TheTVDB key"}
     except Exception as e:
         return {"ok": False, "message": str(e)[:80]}
     return {"ok": False, "message": "Unknown service"}

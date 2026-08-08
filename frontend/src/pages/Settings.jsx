@@ -10,7 +10,7 @@ const KEY_FIELDS = [
   { id: "omdb", field: "omdb_api_key", label: "OMDb API Key", required: false, testable: true, hint: "omdbapi.com. Rotten Tomatoes & Metacritic scores." },
   { id: "rpdb", field: "rpdb_api_key", label: "RPDB API Key", required: false, testable: true, hint: "ratingposterdb.com. Posters with ratings baked in." },
   { id: "fanart", field: "fanart_api_key", label: "Fanart.tv API Key", required: false, testable: true, hint: "fanart.tv. HD logos on title pages." },
-  { id: "thetvdb", field: "thetvdb_api_key", label: "TheTVDB API Key", required: false, testable: false, hint: "thetvdb.com. Extended TV metadata." },
+  { id: "thetvdb", field: "thetvdb_api_key", label: "TheTVDB API Key", required: false, testable: true, hint: "thetvdb.com. Extended TV metadata." },
 ];
 
 export default function Settings() {

@@ -33,11 +33,23 @@ Redesign the "unprofessional" debridmediamanager.com into a sleek, premium app f
 - **Bulk**: one-tap "Cache Season" + /api/torbox/bulk-add.
 - Verified: 100% backend (iter1 17 + iter2 9) + 100% frontend.
 
+### Iteration 3
+- **Rebrand**: app "Debrid Media Manager", developer "by Bort Knox". All "Stremio" wording removed from UI → "Add Plugin" / "plugin" / "player" (deep-link install still works).
+- **7 indexers** (all reachable server-side): The Pirate Bay, TheRARBG, TorrentGalaxy, EZTV, LimeTorrents, TorrentDownloads, Nyaa. (YTS/1337x/EXT.to are Cloudflare-walled and excluded.)
+- **Real pagination**: search/discover return page + total_pages + total_results; UI has numbered pages + prev/next (search "star wars" = 257 results / 13 pages).
+- **Sources filter + sort**: sort by Best match / Seeders / Size (asc/desc) / Resolution, on top of regex filter, Instant-only toggle, resolution chips, and list/grid view.
+- **Library upgraded**: TMDB cover-art matching per item, grid + list views, poster cards.
+- **In-site player**: Play opens an embedded video modal (with external-open fallback); uncached "Play" now sends to TorBox to download instead of hanging.
+- **Key management**: nothing shipped with keys; keys stored in DB and remembered. Settings has 6 keys each with a **Test** button + success/fail feedback; Onboarding modal on first run.
+- **Enrichment**: OMDb RT/MC/IMDb badges, RPDB rating-baked posters, Fanart logos.
+- Verified: 100% backend (iter1 17 + iter2 9 + iter3 10) + ~98% frontend.
+
 ## Backlog / Remaining (P1/P2)
-- P1: Background prefetch on trending/hero to kill first-open cold latency.
-- P2: Trakt Sync (needs a Trakt app client_id/secret from user — OAuth).
-- P2: OpenRouter AI-powered search (LLM via integration).
-- P2: MDBList lists import; split server.py into routers.
+- P1: Background pre-warm of first /library & /sources to remove ~6-8s cold latency.
+- P2: Trakt Sync (needs Trakt app client_id/secret — OAuth).
+- P2: OpenRouter AI search (LLM integration).
+- P2: Split server.py (>1000 lines) into routers; MDBList lists import.
+- Note: TheTVDB isn't wired into any feature yet; the provided key fails v4 login (legacy/pin key) — Test button reports this honestly.
 
 ## Next Tasks
 - Address first-load latency and connection-status flakiness if user reports it.

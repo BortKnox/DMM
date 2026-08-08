@@ -81,12 +81,20 @@ export default function Detail() {
   const currentSeason = (meta?.seasons || []).find((s) => s.season_number === season);
 
   const onPlay = async (source) => {
+    if (!source.cached) {
+      toast.info("Not cached yet — sending to TorBox to download");
+      try {
+        const res = await api.add({ hash: source.hash, name: source.name });
+        toast.success(res.detail || "Added to your Library — it'll be playable once downloaded");
+      } catch { toast.error("Failed to start caching"); }
+      return;
+    }
     setPlayer({ open: true, url: null, loading: true, title: source.name });
     try {
       const res = await api.resolve({ hash: source.hash, name: source.name, season: isSeries ? season : null, episode: isSeries ? episode : null });
       setPlayer({ open: true, url: res.url, loading: false, title: source.name });
     } catch {
-      toast.error("Could not resolve stream");
+      toast.error("Could not resolve stream — try another source");
       setPlayer({ open: false, url: null, loading: false, title: "" });
     }
   };
