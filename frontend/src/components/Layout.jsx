@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Search, Home, Library, Settings, Puzzle, Clapperboard, Tv, Sparkles, Zap } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api, BRAND } from "@/lib/api";
+import Onboarding from "@/components/Onboarding";
 
 const navItems = [
   { to: "/", label: "Discover", icon: Home },
@@ -31,6 +32,7 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen flex bg-[#050507] text-slate-100 relative z-[2]">
+      {config?.needs_onboarding && <Onboarding />}
       {/* Sidebar */}
       <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r border-white/5 bg-[#08090d] sticky top-0 h-screen">
         <Link to="/" data-testid="sidebar-logo" className="flex items-center gap-3 px-6 py-6">

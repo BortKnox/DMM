@@ -1,0 +1,29 @@
+{
+  "summary": "Iteration 2 full re-test: 9/9 backend pytest cases pass (config with keys_set + 4 available_sources + needs_onboarding=false, no keys in backend/.env, star-wars relevance with main saga + prequels in top 20, multi-indexer sources for movie (104 total, apibay+therarbg present, 6 cached), series with therarbg+eztv, meta caching second-call <3s + OMDb ratings {RT/MC/IMDb} + RPDB poster url, TorBox bulk-add idempotent, cache-season with episodes=1 returns {added, episodes_found}, Stremio manifest/stream). Frontend Playwright verified: no onboarding modal on load; header search 'star wars' -> /search shows 37 relevant cards incl. Episode I/III visible; Detail /title/movie/158852 shows external-ratings badges (RT 49% / MC 60/100 / IMDb 6.4), 104 sources rendered with 6 cached badged, filter input + Cached-only toggle + 2160p/1080p/720p/480p chips present, view-grid and view-list toggles both work; Play buttons on cached rows present; Series /title/series/1396 shows season-select, episode-select, and cache-season-btn; Settings shows all 6 API-key inputs (torbox/tmdb/omdb/rpdb/fanart/thetvdb) each with 'Set' badge, all 4 source-toggle-{apibay,therarbg,eztv,nyaa}, and settings-save-btn; Stremio page has install & copy buttons after generate.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Detail (series) season/episode dropdowns", "issues": ["Dev-console hydration warning: <span> cannot be a child of <option>. Caused by extra span injected inside <option> elements for season-select/episode-select. Harmless in prod but React logs an error; consider rendering plain text inside <option>."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_dmm_iter2.py",
+    "/app/backend/tests/test_dmm_api.py",
+    "/app/test_reports/pytest/iter2_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Detail.jsx season/episode <option> children include a <span> wrapper causing a React hydration warning. Options must only contain text.",
+    "server.py still large (>800 lines after iter2 additions) - consider splitting routers (tmdb, torbox, indexers, stremio, config).",
+    "First /api/sources call remains cold-slow (5-8s) but 15-min TTL cache is in place; consider a background prefetch on trending/hero item to eliminate first-open latency."
+  ],
+  "updated_files": ["/app/backend/tests/test_dmm_iter2.py", "/app/test_reports/iteration_2.json"],
+  "success_rate": {"backend": "100% (9/9)", "frontend": "100%"},
+  "test_credentials": "No auth. Keys pre-seeded in Mongo config; /app/backend/.env contains only MONGO_URL/DB_NAME/CORS_ORIGINS (verified no TORBOX_API_KEY / TMDB_API_KEY).",
+  "seed_data_creation": "None. Idempotently re-added cached hash 32415815a0b4621400688f0bf2966d7fd3435d93 (Tomorrowland) via bulk-add and cache-season(season=1, episodes=1) on Breaking Bad tt0903747.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Iter2 tests live at /app/backend/tests/test_dmm_iter2.py (9 cases) alongside iter1 at test_dmm_api.py. Config now returns keys_set(6 keys)+4 available_sources(apibay,therarbg,eztv,nyaa)+needs_onboarding=false. Movie sources return ~100+ with source_indexer='apibay'|'therarbg'; series adds 'eztv'. Meta responses now include ratings{rotten_tomatoes,metacritic,imdb} and poster=api.ratingposterdb.com URL. Endpoints /api/torbox/bulk-add and /api/torbox/cache-season are functional. Do NOT clear Mongo config collection. Cap cache-season episodes at 1-2 during tests. Known minor: hydration warning from <span> inside <option> in Detail.jsx."
+}

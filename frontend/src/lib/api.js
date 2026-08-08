@@ -20,6 +20,8 @@ export const api = {
   season: (id, s) => client.get(`/season/${id}/${s}`).then((r) => r.data),
   sources: (imdb, params) => client.get(`/sources/${imdb}`, { params }).then((r) => r.data),
   add: (body) => client.post("/torbox/add", body).then((r) => r.data),
+  bulkAdd: (items) => client.post("/torbox/bulk-add", { items }).then((r) => r.data),
+  cacheSeason: (body) => client.post("/torbox/cache-season", body).then((r) => r.data),
   resolve: (body) => client.post("/torbox/resolve", body).then((r) => r.data),
   library: () => client.get("/library").then((r) => r.data),
   deleteLib: (id) => client.delete(`/library/${id}`).then((r) => r.data),
