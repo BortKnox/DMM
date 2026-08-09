@@ -852,6 +852,30 @@ async def match_poster(name):
     return poster
 
 
+async def match_tmdb(name):
+    ck = ("tmatch", (name or "")[:70])
+    hit = cache_get(ck)
+    if hit is not None:
+        return hit
+    clean = re.sub(r"[._]", " ", name or "")
+    clean = re.split(r"\b(19|20)\d{2}\b|\b(1080p|720p|2160p|480p|s\d{1,2}|complete|season)\b", clean, flags=re.I)[0].strip()
+    res = None
+    try:
+        async with _poster_sem:
+            d = await tmdb_get("/search/multi", {"query": clean[:60]})
+        for c in d.get("results", []):
+            if c.get("media_type") not in ("movie", "tv"):
+                continue
+            m = map_tmdb_item(c)
+            if m["poster"]:
+                res = m
+                break
+    except Exception:
+        pass
+    cache_set(ck, res, 86400)
+    return res
+
+
 @api_router.post("/reset")
 async def reset_config():
     await db.config.update_one({"_id": CONFIG_ID}, {"$set": {k: "" for k in
@@ -1088,16 +1112,30 @@ async def stremio_catalog(cfg: str, type: str, id: str, request: Request):
         r = await http.get(f"{TORBOX_API}/torrents/mylist", params={"bypass_cache": "true"},
                           headers=tb_headers(key), timeout=30)
         data = r.json().get("data") or []
-    metas = []
+    LOGO = "https://static.prod-images.emergentagent.com/jobs/4c3cfdd9-909a-42ca-a0a0-9a803d3f7427/images/3432b210e7a4ebbaf55fd5f9cd44b4b5a753aa7f65c9c60b34bdfef7085e39aa.jpeg"
+    filtered = []
     for it in data:
         name = it.get("name", "")
-        q = parse_quality(name)
         is_series = bool(re.search(r"s\d{1,2}e\d{1,2}|season|complete", name, re.I))
-        if ("series" if is_series else "movie") != type:
-            continue
-        metas.append({"id": f"dmm:{it.get('id')}", "type": type, "name": name[:80],
-                      "poster": "https://static.prod-images.emergentagent.com/jobs/4c3cfdd9-909a-42ca-a0a0-9a803d3f7427/images/3432b210e7a4ebbaf55fd5f9cd44b4b5a753aa7f65c9c60b34bdfef7085e39aa.jpeg",
-                      "description": f"{q['resolution'] or ''} {q['source'] or ''} • {human_size(it.get('size'))}"})
+        if ("series" if is_series else "movie") == type:
+            filtered.append(it)
+    matches = []
+    if await get_tmdb_key():
+        matches = await asyncio.gather(*[match_tmdb(it.get("name", "")) for it in filtered], return_exceptions=True)
+    metas = []
+    for i, it in enumerate(filtered):
+        name = it.get("name", "")
+        q = parse_quality(name)
+        m = matches[i] if i < len(matches) and not isinstance(matches[i], Exception) else None
+        metas.append({
+            "id": f"dmm:{it.get('id')}", "type": type,
+            "name": (m or {}).get("title") or re.sub(r"[._]", " ", name)[:80],
+            "poster": (m or {}).get("poster") or LOGO,
+            "posterShape": "poster",
+            "background": (m or {}).get("backdrop"),
+            "releaseInfo": (m or {}).get("year"),
+            "description": (((m or {}).get("overview") or "") + f"\n\n📁 {name}\n{q['resolution'] or ''} {q['source'] or ''} • {human_size(it.get('size'))}").strip()[:800],
+        })
     return JSONResponse({"metas": metas})
 
 
@@ -1115,8 +1153,15 @@ async def stremio_meta(cfg: str, type: str, id: str):
     files = [f for f in (info.get("files") or []) if re.search(r"\.(mkv|mp4|avi|m4v|ts)$", f.get("name", ""), re.I)]
     videos = [{"id": f"dmm:{tid}:{f.get('id')}", "title": os.path.basename(f.get("name", "")),
                "released": info.get("created_at")} for f in files]
-    meta = {"id": idv, "type": type, "name": info.get("name", "")[:80],
-            "description": f"TorBox • {human_size(info.get('size'))}"}
+    raw_name = info.get("name", "")
+    m = await match_tmdb(raw_name) if await get_tmdb_key() else None
+    LOGO = "https://static.prod-images.emergentagent.com/jobs/4c3cfdd9-909a-42ca-a0a0-9a803d3f7427/images/3432b210e7a4ebbaf55fd5f9cd44b4b5a753aa7f65c9c60b34bdfef7085e39aa.jpeg"
+    meta = {"id": idv, "type": type,
+            "name": (m or {}).get("title") or re.sub(r"[._]", " ", raw_name)[:80],
+            "poster": (m or {}).get("poster") or LOGO, "posterShape": "poster",
+            "background": (m or {}).get("backdrop"),
+            "releaseInfo": (m or {}).get("year"),
+            "description": (((m or {}).get("overview") or "") + f"\n\n📁 {raw_name}\nTorBox • {human_size(info.get('size'))}").strip()}
     if type == "series" and videos:
         meta["videos"] = videos
     return JSONResponse({"meta": meta})

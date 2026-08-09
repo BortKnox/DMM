@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Zap, Download, Copy, Play, HardDrive, Users, Loader2, CheckCircle2 } from "lucide-react";
+import { Zap, Download, Copy, Play, HardDrive, Users, Loader2, CheckCircle2, ChevronDown, ExternalLink, MonitorPlay } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 
@@ -13,7 +13,7 @@ function Badge({ children, tone = "default" }) {
   return <span className={`inline-flex items-center rounded-sm border px-1.5 py-0.5 text-[10px] font-semibold ${tones[tone]}`}>{children}</span>;
 }
 
-function useActions(source, mediaContext, onPlay) {
+function useActions(source, mediaContext, onPlay, onExternal) {
   const [busy, setBusy] = useState(null);
   const [added, setAdded] = useState(false);
   const q = source.quality || {};
@@ -26,6 +26,7 @@ function useActions(source, mediaContext, onPlay) {
       window.open(res.url, "_blank");
     } catch { toast.error("Could not resolve stream"); } finally { setBusy(null); }
   };
+  const doExternal = () => { if (onExternal) return onExternal(source); doPlay(); };
   const doAdd = async () => {
     setBusy("add");
     try {
@@ -35,11 +36,12 @@ function useActions(source, mediaContext, onPlay) {
     } catch { toast.error("Failed to add to Library"); } finally { setBusy(null); }
   };
   const copyMagnet = () => { navigator.clipboard.writeText(source.magnet); toast.success("Magnet copied"); };
-  return { busy, added, q, doPlay, doAdd, copyMagnet };
+  return { busy, added, q, doPlay, doExternal, doAdd, copyMagnet };
 }
 
-export default function SourceRow({ source, mediaContext, compact = false, onPlay }) {
-  const { busy, added, q, doPlay, doAdd, copyMagnet } = useActions(source, mediaContext, onPlay);
+export default function SourceRow({ source, mediaContext, compact = false, onPlay, onExternal }) {
+  const { busy, added, q, doPlay, doExternal, doAdd, copyMagnet } = useActions(source, mediaContext, onPlay, onExternal);
+  const [menu, setMenu] = useState(false);
   const id8 = source.hash.slice(0, 8);
 
   const badges = (
