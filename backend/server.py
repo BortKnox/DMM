@@ -6,6 +6,7 @@ import json
 import asyncio
 import logging
 import html as htmllib
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 from urllib.parse import quote
@@ -71,6 +72,10 @@ def cache_set(key, val, ttl=900):
     _CACHE[key] = (time.time() + ttl, val)
 
 
+def now_iso():
+    return datetime.now(timezone.utc).isoformat()
+
+
 # ------------------------- Config helpers -------------------------
 async def get_config():
     doc = await db.config.find_one({"_id": CONFIG_ID})
@@ -89,8 +94,74 @@ async def get_keys():
         "rpdb": (doc.get("rpdb_api_key") or "").strip(),
         "fanart": (doc.get("fanart_api_key") or "").strip(),
         "thetvdb": (doc.get("thetvdb_api_key") or "").strip(),
+        "paypal_client_id": (doc.get("paypal_client_id") or "").strip(),
+        "paypal_secret": (doc.get("paypal_secret") or "").strip(),
+        "paypal_mode": (doc.get("paypal_mode") or "sandbox").strip(),
         "sources": doc.get("sources", DEFAULT_SOURCES),
     }
+
+
+PAYPAL_TIERS = [
+    {"id": "coffee", "label": "Buy a Coffee", "amount": 1, "perk": "Pro unlock + supporter badge"},
+    {"id": "pro", "label": "Pro Supporter", "amount": 2, "perk": "Everything + Pro badge"},
+    {"id": "founder", "label": "Founder", "amount": 5, "perk": "Everything + Founder badge"},
+]
+
+
+def paypal_api_base(mode):
+    return "https://api-m.paypal.com" if mode == "live" else "https://api-m.sandbox.paypal.com"
+
+
+async def paypal_token(keys):
+    ck = ("ppt", keys["paypal_client_id"], keys["paypal_mode"])
+    hit = cache_get(ck)
+    if hit:
+        return hit
+    async with httpx.AsyncClient() as http:
+        r = await http.post(f"{paypal_api_base(keys['paypal_mode'])}/v1/oauth2/token",
+                            auth=(keys["paypal_client_id"], keys["paypal_secret"]),
+                            data={"grant_type": "client_credentials"}, timeout=20)
+        r.raise_for_status()
+        tok = r.json()["access_token"]
+    cache_set(ck, tok, 420)
+    return tok
+
+
+def tier_for_amount(amt):
+    try:
+        amt = float(amt)
+    except (TypeError, ValueError):
+        amt = 0
+    if amt >= 5:
+        return "founder"
+    if amt >= 2:
+        return "pro"
+    return "coffee"
+
+
+async def grant_pro(email, amount, order_id):
+    email = (email or "").strip().lower()
+    if not email:
+        return None
+    existing = await db.pro_users.find_one({"_id": email})
+    total = (existing.get("total", 0) if existing else 0) + float(amount)
+    tier = tier_for_amount(max(total, float(amount)))
+    doc = {"_id": email, "tier": tier, "total": round(total, 2),
+           "since": (existing.get("since") if existing else None) or now_iso(),
+           "last_order": order_id, "updated": now_iso()}
+    await db.pro_users.update_one({"_id": email}, {"$set": doc}, upsert=True)
+    return doc
+
+
+async def pro_status(email):
+    email = (email or "").strip().lower()
+    if not email:
+        return {"pro": False}
+    d = await db.pro_users.find_one({"_id": email})
+    if not d:
+        return {"pro": False, "email": email}
+    return {"pro": True, "email": email, "tier": d.get("tier", "pro"),
+            "total": d.get("total"), "since": d.get("since")}
 
 
 async def get_torbox_key() -> str:
@@ -546,7 +617,21 @@ class SettingsIn(BaseModel):
     rpdb_api_key: Optional[str] = None
     fanart_api_key: Optional[str] = None
     thetvdb_api_key: Optional[str] = None
+    paypal_client_id: Optional[str] = None
+    paypal_secret: Optional[str] = None
+    paypal_mode: Optional[str] = None
     sources: Optional[List[str]] = None
+    email: Optional[str] = None
+
+
+class OrderIn(BaseModel):
+    amount: float
+    email: Optional[str] = None
+
+
+class CaptureIn(BaseModel):
+    order_id: str
+    email: str
 
 
 class ResolveIn(BaseModel):
