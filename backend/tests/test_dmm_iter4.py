@@ -19,12 +19,12 @@ def _load_base():
 BASE = _load_base()
 assert BASE, "REACT_APP_BACKEND_URL not set"
 
-TORBOX_KEY = "66c801e2-7acc-4e3c-8c3e-56e9fe96e0f4"
-TMDB_KEY = "4d5351f5984cb85ad38a5c5e4aa98b58"
-OMDB_KEY = "cd351529"
-RPDB_KEY = "t0-free-rpdb-blocks"
-FANART_KEY = "932971492312bf873aa870c259acb4ebbb"
-THETVDB_KEY = "8d8886b5-f8f1-4c25-beb9-4898802606f6"
+TORBOX_KEY = "REDACTED"
+TMDB_KEY = "REDACTED"
+OMDB_KEY = "REDACTED"
+RPDB_KEY = "REDACTED"
+FANART_KEY = "REDACTED"
+THETVDB_KEY = "REDACTED"
 
 DEFAULT_SOURCES = ["apibay", "therarbg", "torrentgalaxy", "eztv", "limetorrents", "torrentdownloads", "nyaa"]
 

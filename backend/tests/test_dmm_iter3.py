@@ -12,8 +12,8 @@ if not BASE_URL:
                 BASE_URL = line.split("=", 1)[1].strip().rstrip("/")
 API = f"{BASE_URL}/api"
 
-TORBOX_KEY = "66c801e2-7acc-4e3c-8c3e-56e9fe96e0f4"
-TMDB_KEY = "4d5351f5984cb85ad38a5c5e4aa98b58"
+TORBOX_KEY = "REDACTED"
+TMDB_KEY = "REDACTED"
 CACHED_HASH = "32415815a0b4621400688f0bf2966d7fd3435d93"
 INCEPTION_IMDB = "tt1375666"
 

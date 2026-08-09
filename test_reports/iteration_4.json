@@ -23,7 +23,7 @@
     "/app/test_reports/pytest/iter4_results.xml"
   ],
   "success_rate": {"backend": "100% (8/8)", "frontend": "100%"},
-  "test_credentials": "No auth. Keys re-seeded post-reset. TorBox=66c801e2-7acc-4e3c-8c3e-56e9fe96e0f4, TMDB=4d5351f5984cb85ad38a5c5e4aa98b58, OMDb=cd351529, RPDB=t0-free-rpdb-blocks, Fanart=932971492312bf873aa870c259acb4ebbb, TheTVDB=8d8886b5-f8f1-4c25-beb9-4898802606f6. Verified config.torbox_connected=true, keys_set all true after test run.",
+  "test_credentials": "No auth. Keys re-seeded post-reset. TorBox=REDACTED, TMDB=REDACTED, OMDb=REDACTED, RPDB=REDACTED, Fanart=REDACTED, TheTVDB=REDACTED. Verified config.torbox_connected=true, keys_set all true after test run.",
   "seed_data_creation": "No new library items added. Re-seeded all 6 API keys into Mongo config after reset test (mandatory per review request).",
   "retest_needed": false,
   "should_main_agent_self_test": true,

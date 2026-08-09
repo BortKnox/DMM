@@ -25,7 +25,7 @@
   ],
   "updated_files": ["/app/backend/tests/test_dmm_iter3.py", "/app/test_reports/iteration_3.json", "/app/test_reports/pytest/iter3_results.xml"],
   "success_rate": {"backend": "100% (10/10)", "frontend": "~98% (1 minor: missing thetvdb test button by design)"},
-  "test_credentials": "No auth. Keys pre-seeded in Mongo config; TorBox=66c801e2-7acc-4e3c-8c3e-56e9fe96e0f4, TMDB=4d5351f5984cb85ad38a5c5e4aa98b58. Config collection NOT cleared.",
+  "test_credentials": "No auth. Keys pre-seeded in Mongo config; TorBox=REDACTED, TMDB=REDACTED. Config collection NOT cleared.",
   "seed_data_creation": "Idempotently re-added cached hash 32415815a0b4621400688f0bf2966d7fd3435d93 (Tomorrowland) to warm library for poster-enrichment test. No deletions.",
   "retest_needed": false,
   "should_main_agent_self_test": true,
