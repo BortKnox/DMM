@@ -1,10 +1,10 @@
-# DMM / SCREENING ROOM
+# DMM / Debrid Media Manager
 
 **Find a film, pick a release, and watch it where you are.** I built DMM for the evenings I use Harbor on the media center and the ones when all I have is a browser.
 
 [Project preview](https://bortknox.github.io/DMM/) · [Local setup](#run-it) · [Playback field notes](#playback-verification)
 
-![DMM screening room with the light bench interface](docs/screening-room.jpg)
+![DMM Discover with the light bench interface](docs/screening-room.jpg)
 
 ```
 UNIT     03 / BORT KNOX
@@ -94,3 +94,29 @@ This build is for a trusted local instance. Provider credentials live in the ins
 New add-on installations use private random installation identifiers. Older installation links can contain an encoded TorBox key and should be treated as credentials. Rated posters are served through the backend to keep the RPDB key out of browser image URLs.
 
 Discover poster and title links open the detail page. More like this steers recommendations. Save on a title retains it before a release is chosen. Source filtering and sorting apply to the full returned set; the page renders 24 matches at a time. Fetching additional upstream results incrementally is separate work.
+
+### Personal remote access
+
+For an always-on home PC and your own devices, Tailscale Personal and Tailscale Serve provide private HTTPS without a hosting subscription. The PC still supplies bandwidth, storage and FFmpeg CPU. Install Tailscale on both devices and sign into the same personal network.
+
+1. Build the frontend with `yarn build` in `frontend`. Leave `REACT_APP_BACKEND_URL` unset so the browser uses its current origin.
+2. Run FastAPI and MongoDB on loopback per the local setup above. From the repo root, run Caddy with the example below saved as `Caddyfile`. Replace the Caddy hostname placeholder with the actual Tailscale DNS name.
+3. Run `tailscale serve --bg http://127.0.0.1:8080` on the host. Open the private HTTPS URL it prints on the second device. Generate the Harbor installation link from that private URL and verify its hostname before installing.
+
+```caddyfile
+http://127.0.0.1:8080 {
+    handle /api/* {
+        reverse_proxy 127.0.0.1:8000 {
+            header_up X-Forwarded-Host YOUR-HOST.YOUR-TAILNET.ts.net
+            header_up X-Forwarded-Proto https
+        }
+    }
+    handle {
+        root * frontend/build
+        try_files {path} /index.html
+        file_server
+    }
+}
+```
+
+The GitHub Pages catalogue browses public metadata directly. TorBox, saved releases and server conversion run on the private instance. Keep access limited to trusted personal devices until per-user settings and authentication are implemented.
