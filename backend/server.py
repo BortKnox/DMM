@@ -183,7 +183,7 @@ def tb_headers(key: str):
 def parse_quality(name: str) -> dict:
     n = name.lower()
     res = None
-    for r, pat in [("2160p", r"2160p|\b4k\b|uhd"), ("1080p", r"1080p|1080i"),
+    for r, pat in [("2160p", r"2160p|\b4k\b|uhd"), ("1440p", r"1440p|2560x1440"), ("1080p", r"1080p|1080i"),
                    ("720p", r"720p"), ("480p", r"480p|dvdrip|xvid")]:
         if re.search(pat, n):
             res = r
@@ -211,11 +211,12 @@ def parse_quality(name: str) -> dict:
         if re.search(pat, n):
             audio = a
             break
-    return {"resolution": res, "source": source, "codec": codec, "hdr": hdr, "audio": audio}
+    editions = [label for label, pattern in [("IMAX", r"imax"), ("Open Matte", r"open[ ._-]*matte")] if re.search(pattern, n)]
+    return {"editions": editions, "resolution": res, "source": source, "codec": codec, "hdr": hdr, "audio": audio}
 
 
 def res_rank(res: Optional[str]) -> int:
-    return {"2160p": 4, "1080p": 3, "720p": 2, "480p": 1}.get(res or "", 0)
+    return {"2160p": 5, "1440p": 4, "1080p": 3, "720p": 2, "480p": 1}.get(res or "", 0)
 
 
 def build_magnet(h: str, name: str) -> str:
@@ -835,7 +836,7 @@ async def meta(media_type: str, tmdb_id: str):
     if hit is not None:
         return hit
     mt = "tv" if media_type == "series" else "movie"
-    data = await tmdb_get(f"/{mt}/{tmdb_id}", {"append_to_response": "external_ids"})
+    data = await tmdb_get(f"/{mt}/{tmdb_id}", {"append_to_response": "external_ids,credits,videos"})
     ext = data.get("external_ids", {})
     m = map_tmdb_item({**data, "media_type": mt})
     seasons = []
@@ -847,6 +848,9 @@ async def meta(media_type: str, tmdb_id: str):
                             "episode_count": s.get("episode_count")})
     m.update({
         "imdb_id": ext.get("imdb_id"),
+        "cast": [actor["name"] for actor in (data.get("credits") or {}).get("cast", [])[:8] if actor.get("name")],
+        "creators": [c["name"] for c in data.get("created_by", []) if c.get("name")] or [c["name"] for c in (data.get("credits") or {}).get("crew", []) if c.get("job") == "Director" and c.get("name")],
+        "trailer": next((v["key"] for v in (data.get("videos") or {}).get("results", []) if v.get("official") and v.get("type") == "Trailer" and v.get("site") == "YouTube"), None),
         "genres": [g["name"] for g in data.get("genres", [])],
         "runtime": data.get("runtime") or (data.get("episode_run_time") or [None])[0],
         "seasons": seasons, "tagline": data.get("tagline"),
@@ -1206,6 +1210,11 @@ async def decode_config(cfg):
 
 
 class AddonSettings(SettingsIn):
+    resolutions: List[str] = []
+    editions: List[str] = []
+    formats: List[str] = []
+    result_limit: int = 40
+    order: str = "priority"
     resolution: Optional[str] = None
     cached_only: bool = False
     min_gb: float = 0
@@ -1221,7 +1230,7 @@ async def stremio_manifest_url(body: AddonSettings, request: Request):
         raise HTTPException(422, "Check TorBox, sources and size range")
     enc = "install-" + secrets.token_urlsafe(32)
     await db.addon_installs.insert_one({"_id": enc, "sources": srcs,
-        "filters":body.model_dump(include={"resolution","cached_only","min_gb","max_gb"}), "key_override": key if key != keys["torbox"] else None})
+        "filters":body.model_dump(include={"resolution","resolutions","editions","formats","order","result_limit","cached_only","min_gb","max_gb"}), "key_override": key if key != keys["torbox"] else None})
     base = public_base(request)
     url = f"{base}/api/stremio/{enc}/manifest.json"
     return {"config": enc, "manifest_url": url,
@@ -1278,12 +1287,19 @@ async def stremio_stream(cfg: str, type: str, video_id: str, request: Request):
         i["q"] = parse_quality(i["name"])
         i["rr"] = res_rank(i["q"]["resolution"])
     filters = conf.get("filters", {})
+    resolutions = filters.get("resolutions") or ([filters["resolution"]] if filters.get("resolution") else [])
     items = [i for i in items if (not filters.get("cached_only") or i["cached"])
-             and (not filters.get("resolution") or i["q"]["resolution"] == filters["resolution"])
+             and (not resolutions or i["q"]["resolution"] in resolutions)
+             and (not filters.get("editions") or set(filters["editions"]).intersection(i["q"]["editions"]))
+             and (not filters.get("formats") or i["q"]["source"] in filters["formats"])
              and (not filters.get("min_gb") or (i.get("size") or 0) >= filters["min_gb"] * 1024**3)
              and (filters.get("max_gb") is None or 0 < (i.get("size") or 0) <= filters["max_gb"] * 1024**3)]
     items.sort(key=lambda x: (x["cached"], x["rr"], x["seeders"]), reverse=True)
-    items = items[:40]
+    order = filters.get("order")
+    if order in ("size_desc", "size_asc", "seeders"):
+        field = "seeders" if order == "seeders" else "size"
+        items.sort(key=lambda i: i.get(field) or 0, reverse=order != "size_asc")
+    items = items[:max(1,min(100,filters.get("result_limit",40)))]
     base = public_base(request)
     streams = []
     for it in items:

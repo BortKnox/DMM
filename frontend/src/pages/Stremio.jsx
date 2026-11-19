@@ -1,3 +1,4 @@
+import ReleaseFilters from "@/components/ReleaseFilters";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -17,7 +18,9 @@ export default function Stremio() {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const [resolution, setResolution] = useState("");
+  const [selection, setSelection] = useState({});
+  const [resultLimit, setResultLimit] = useState(40);
+  const [order,setOrder] = useState("priority");
   const [cached, setCached] = useState(false);
   const [minimum, setMinimum] = useState("");
   const [maximum, setMaximum] = useState("");
@@ -32,7 +35,7 @@ export default function Stremio() {
 
   const generate = async () => {
     setLoading(true);
-    try { setResult(await api.manifestUrl({ sources: active, resolution: resolution || null, cached_only:cached, min_gb:Number(minimum), max_gb:maximum === "" ? null : Number(maximum) })); toast.success("Plugin link generated"); }
+    try { setResult(await api.manifestUrl({ sources: active, ...selection, result_limit:resultLimit, order, cached_only:cached, min_gb:Number(minimum), max_gb:maximum === "" ? null : Number(maximum) })); toast.success("Plugin link generated"); }
     catch { toast.error("Failed to generate plugin link"); } finally { setLoading(false); }
   };
 
@@ -87,7 +90,9 @@ export default function Stremio() {
 
       <fieldset onChange={() => setResult(null)} className="mb-5 flex flex-wrap gap-4">
         <legend className="mb-2 font-semibold">Release filters</legend>
-        <label>Resolution <select value={resolution} onChange={e=>setResolution(e.target.value)}><option value="">Any</option>{["2160p","1080p","720p","480p"].map(r=><option key={r}>{r}</option>)}</select></label>
+        <ReleaseFilters value={selection} onChange={v=>{setSelection(v);setResult(null);}}/>
+        <label>Results <select value={resultLimit} onChange={e=>setResultLimit(Number(e.target.value))}>{[12,24,40,80].map(n=><option key={n}>{n}</option>)}</select></label>
+        <label>Sort <select value={order} onChange={e=>setOrder(e.target.value)}><option value="priority">Best match</option><option value="size_desc">Largest first</option><option value="size_asc">Smallest first</option><option value="seeders">Most seeders</option></select></label>
         <label>Min GB <input className="w-16" type="number" min="0" step="any" value={minimum} onChange={e=>setMinimum(e.target.value)}/></label>
         <label>Max GB <input className="w-16" type="number" min="0" step="any" value={maximum} onChange={e=>setMaximum(e.target.value)}/></label>
         <label><input type="checkbox" checked={cached} onChange={e=>setCached(e.target.checked)}/> Cached only</label>

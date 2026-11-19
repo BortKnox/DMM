@@ -64,7 +64,7 @@ async def details(kind, imdb):
     videos = [v for v in item.get("videos", []) if isinstance(v.get("season"), int) and v["season"] > 0 and isinstance(v.get("episode"), int)]
     counts = Counter(v["season"] for v in videos)
     runtime = re.match(r"\d+", str(item.get("runtime") or ""))
-    info = {**card(item), "imdb_id": imdb, "genres": item.get("genres", []),
+    info = {**card(item), "imdb_id": imdb, "genres": item.get("genres", []), "cast": (item.get("cast") or [])[:8], "creators": item.get("director") or [],
             "runtime": int(runtime.group()) if runtime else None,
             "seasons": [{"season_number": n, "episode_count": counts[n]} for n in sorted(counts)]}
     return info, videos

@@ -43,7 +43,7 @@ export default function Discover() {
     setHistory(history.slice(0, -1));
   }
   return <div className="discovery">
-    <header><span className="desk-label">BORT / SCREENING ROOM</span><h1>Discover</h1>
+    <header><span className="desk-label">DMM / DEBRID MEDIA MANAGER</span><h1>Discover</h1>
 
     </header>
     <section className="screen" aria-label="Featured pick">
