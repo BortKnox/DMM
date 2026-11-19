@@ -46,8 +46,8 @@ export default function Player({ open, url, title, loading, onClose }) {
           <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-white/10 flex-wrap">
             <p className="text-[11px] text-slate-500 flex items-center gap-1.5">
               {universal
-                ? <><Wand2 size={12} className="text-blue-400" /> Universal mode â€” transcoded in-house (video + audio guaranteed). Press â–¶ to start.</>
-                : <><Zap size={12} className="text-amber-400" /> Direct mode â€” seekable, but audio may be silent on MKV/HEVC.</>}
+                ? <><Wand2 size={12} className="text-blue-400" /> Server conversion: stereo AAC. Seeking may be limited.</>
+                : <><Zap size={12} className="text-amber-400" /> Direct playback. Picture but no sound? Try server conversion.</>}
             </p>
             <div className="flex items-center gap-2">
               <button data-testid="player-universal" onClick={() => { setFailure(""); setUniversal((v) => !v); }}
