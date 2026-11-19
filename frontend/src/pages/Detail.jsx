@@ -1,3 +1,4 @@
+import Ratings from "@/components/Ratings";
 import ReleaseFilters, { matchesRelease } from "@/components/ReleaseFilters";
 import SaveTitle from "@/components/SaveTitle";
 import { useState, useMemo, useEffect } from "react";
@@ -16,11 +17,6 @@ const SORTS = [
   { id: "size_asc", label: "Smallest size" },
   { id: "resolution", label: "Resolution" },
 ];
-
-function ScoreBadge({ label, value, color }) {
-  if (!value || value === "N/A") return null;
-  return <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-semibold ${color}`}><span className="opacity-70">{label}</span> {value}</span>;
-}
 
 export default function Detail() {
   const { mediaType, tmdbId } = useParams();
@@ -149,13 +145,7 @@ export default function Detail() {
                 {meta.rated && <span className="rounded border border-white/20 px-1.5 py-0.5 text-[10px]">{meta.rated}</span>}
                 {(meta.genres || []).slice(0, 3).map((g) => <span key={g} className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">{g}</span>)}
               </div>
-              {meta.ratings && (
-                <div className="flex flex-wrap items-center gap-2 mt-2" data-testid="external-ratings">
-                  <ScoreBadge label="RT" value={meta.ratings.rotten_tomatoes} color="bg-rose-500/10 border-rose-500/30 text-rose-300" />
-                  <ScoreBadge label="MC" value={meta.ratings.metacritic} color="bg-emerald-500/10 border-emerald-500/30 text-emerald-300" />
-                  <ScoreBadge label="IMDb" value={meta.ratings.imdb} color="bg-amber-500/10 border-amber-500/30 text-amber-300" />
-                </div>
-              )}
+              <Ratings ratings={meta.ratings}/>
               <p className="mt-3 text-sm text-slate-300  max-w-2xl">{meta.overview}</p>
                 {meta.creators?.length > 0 && <p>Filmmakers · {[].concat(meta.creators).join(", ")}</p>}
                 {meta.cast?.length > 0 && <p>Cast · {[].concat(meta.cast).join(", ")}</p>}

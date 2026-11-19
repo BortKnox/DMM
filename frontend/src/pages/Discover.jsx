@@ -1,3 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
+import { api, API } from "@/lib/api";
+import Ratings from "@/components/Ratings";
 import SaveTitle from "@/components/SaveTitle";
 import { usePosterSize } from "@/components/PosterSize";
 import { useState } from "react";
@@ -28,6 +31,10 @@ export default function Discover() {
   const [mood, setMood] = useState("Everything");
   const [history, setHistory] = useState([]);
   const [origin, setOrigin] = useState(null);
+  const {data: config} = useQuery({queryKey:["config"], queryFn:api.config});
+  const titleId = film => config?.keys_set?.tmdb ? film.id : film.imdb;
+  const id = titleId(current);
+  const {data: meta} = useQuery({queryKey:["meta","movie",String(id)], queryFn:()=>api.meta("movie",id), enabled:!!config});
   const connected = films.filter(f => f !== current && (mood === "Everything" || f.tags.includes(mood)))
     .sort((a, b) => overlap(current, b).length - overlap(current, a).length);
   function choose(next) {
@@ -47,16 +54,16 @@ export default function Discover() {
 
     </header>
     <section className="screen" aria-label="Featured pick">
-      <img className="still" src={art(current,"background")} alt="" key={current.id}/>
+      <img className="still" src={meta?.backdrop || art(current,"background")} alt="" key={current.id}/>
       <div className="feature" aria-live="polite"><small>{current.year}　/　{current.minutes} MIN</small>
-        <div className="title-line"><h2>{current.title}</h2><SaveTitle id={current.imdb} type="movie" title={current.title}/></div><p>{current.pitch}</p>
-        <div className="actions"><Link to={`/title/movie/${current.imdb}`}>Find a release</Link>{history.length > 0 && <button onClick={back}>Previous pick</button>}</div>
+        <div className="title-line"><h2>{meta?.logo ? <img className="discover-logo" src={meta.logo} alt={current.title}/> : current.title}</h2><SaveTitle id={current.imdb} type="movie" title={current.title}/></div><p>{current.pitch}</p><Ratings ratings={meta?.ratings || (id===current.imdb && meta?.rating ? {imdb:meta.rating} : null)}/>
+        <div className="actions"><Link to={`/title/movie/${titleId(current)}`}>Find a release</Link>{history.length > 0 && <button onClick={back}>Previous pick</button>}</div>
       </div>
     </section>
     <section className="shelf"><div className="section-head"><h2>Where to next?</h2><small>TONIGHT’S SELECTION</small></div>
       <div className="moods" aria-label="Filter suggestions">{moods.map(m => <button key={m} aria-pressed={mood === m} onClick={() => setMood(m)}>{m}</button>)}</div>
-      {posters.control}<div className="picks" style={posters.style}>{connected.map(f => <article className="pick" key={f.id}><Link to={`/title/movie/${f.imdb}`}>
-        <img src={art(f,"poster")} alt="" loading="lazy"/><span><small>{f.year} · {f.minutes} min</small><strong>{f.title}</strong><em>{overlap(current,f)[0] || (mood === "Everything" ? f.tags[0] : mood)}</em></span>
+      {posters.control}<div className="picks" style={posters.style}>{connected.map(f => <article className="pick" key={f.id}><Link to={`/title/movie/${titleId(f)}`}>
+        <img src={config?.keys_set?.rpdb ? API+"/poster/"+f.imdb : art(f,"poster")} onError={e=>{const fallback=art(f,"poster");if(e.currentTarget.src!==fallback)e.currentTarget.src=fallback;}} alt="" loading="lazy"/><span><small>{f.year} · {f.minutes} min</small><strong>{f.title}</strong><em>{overlap(current,f)[0] || (mood === "Everything" ? f.tags[0] : mood)}</em></span>
       </Link><div className="poster-corner"><SaveTitle id={f.imdb} type="movie" title={f.title}/></div><div className="pick-actions"><button onClick={() => {choose(f);window.scrollTo(0,0);}}>More like this</button></div></article>)}</div>
       {origin && <p className="trail">Last pick · {origin.title}</p>}
     </section>

@@ -15,3 +15,4 @@
 .bench[data-theme=dark] .discovery .pick em{color:#bdc9ba}
 .bench[data-theme=dark] .discovery .moods button[aria-pressed=true]{color:#20251f}
 .bench[data-theme=dark] .discovery .pick:hover{border-color:var(--ink)}
+.discovery .discover-logo{width:auto;max-width:min(100%,25rem);max-height:6rem;object-fit:contain}
