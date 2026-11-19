@@ -1,0 +1,8 @@
+exclude:
+  - backend
+  - frontend
+  - tests
+  - memory
+  - test_reports
+  - test_result.md
+  - design_guidelines.json

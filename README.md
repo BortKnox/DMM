@@ -1,27 +1,31 @@
-# DMM — DEBRID MEDIA MANAGER
+# DMM / SCREENING ROOM
 
-**A dark, fast front end for TorBox: search a title, see which sources are already cached, play or cache with one click, and take it all into Stremio as a plugin.**
+**Find a film, pick a release, and watch it where you are.** I built DMM for the evenings I use Harbor on the media center and the ones when all I have is a browser.
+
+[Project preview](https://bortknox.github.io/DMM/) · [Local setup](#run-it) · [Playback field notes](#playback-verification)
+
+![DMM screening room with the light bench interface](docs/screening-room.jpg)
 
 ```
-UNIT     DMM
-TYPE     TOOL
-STACK    REACT / FASTAPI / MONGODB / FFMPEG
-STATUS   ACTIVE
+UNIT     03 / BORT KNOX
+TYPE     PERSONAL MEDIA WORKBENCH
+CLIENT   BROWSER / HARBOR / STREMIO / VLC / MPC-HC
+ENGINE   REACT / FASTAPI / MONGODB / FFMPEG
 ```
 
 ## WHAT IT DOES
 
-- **Discover and search.** Trending, movies and TV browsing and global search, with metadata, posters and
-  seasons from TMDB. Real pagination.
+- **Discover and search.** Browse movies and TV, search titles, and explore seasons through Cinemeta without an API key. Add TMDB in Settings to switch the catalogue provider.
 - **Sources.** Pulls results from seven indexers per title, merges and de-duplicates them, and marks what is
   already cached on TorBox. Sort by match, seeders, size or resolution; filter by regex, instant-only or
   resolution.
 - **Cache and play.** One-tap cache for a single source or a whole season. Cached items play in an embedded
   player; an optional ffmpeg endpoint remuxes or transcodes to browser-friendly MP4 when native playback fails.
 - **Library.** Your TorBox library with cover art, grid and list views, download and delete.
-- **Stremio plugin.** Generates a per-user `manifest.json` serving streams, a library catalogue and metadata.
+- **Harbor and Stremio.** Choose sources, resolution, optional size limits and cached-only results for each installation. Paste the private manifest URL into Harbor or open it with Stremio. A separate media center needs a reachable backend address. The default loopback setup works on the backend PC.
+- **Native players.** The chain-link control beside Copy magnet resolves a temporary TorBox file URL. Paste it into VLC’s Open Network Stream or MPC-HC’s Open File. Resolving can register the release in TorBox. Generate a fresh link when one expires.
 - **Keys stay with you.** No keys ship in the code. TorBox and TMDB (plus optional OMDb, RPDB, Fanart and
-  TheTVDB) are entered on first run or in Settings, each with a Test button, and stored in your own MongoDB.
+  TheTVDB) are entered in Settings, each with a Test button, and stored in your own MongoDB.
   "Disconnect and erase keys" wipes them.
 
 ## RUN IT
@@ -29,9 +33,9 @@ STATUS   ACTIVE
 You need Python 3, Node with Yarn Classic, MongoDB, and `ffmpeg` on the path if you want Universal Playback.
 
 ```bash
-git clone https://github.com/BortKnox/DMM.git
+git clone --branch feature/discovery-desk https://github.com/BortKnox/DMM.git
 cd DMM/backend
-pip install -r requirements.txt
+python -m pip install fastapi uvicorn httpx motor python-dotenv
 MONGO_URL=mongodb://127.0.0.1:27017 DB_NAME=dmm uvicorn server:app --reload
 ```
 
@@ -64,3 +68,29 @@ memory/PRD.md          # product notes and iteration history
 - You are responsible for how you use the services you connect and for the content you access with them.
 
 Personal project, shared as is. Issues and pull requests may not get a reply; forking is welcome.
+## Playback and library decisions
+
+The browser requests direct playback first. The TorBox resolver registers a torrent on the account to obtain its torrent and file IDs, then requests a temporary download link. Playing a source can therefore add a TorBox dashboard entry. DMM never automatically deletes that entry. Playing an existing TorBox download requests its file link directly.
+
+**Save to DMM** stores the selected release, title and optional episode in the instance database. It does not contact TorBox. Saving the same release and episode twice updates one record. **Unsave** only removes the DMM record. The separate **TorBox downloads** tab reads the connected account and its delete action affects TorBox.
+
+### Playback verification
+
+| Path | Observation | Remaining check |
+| --- | --- | --- |
+| Direct | User verified playback and seeking on a 720p release. A separate H.264 release labelled DDP 5.1 had picture and silent audio. | Device and track support vary. |
+| Server conversion | Local FFmpeg produced audible stereo and clear picture past five minutes on the reported release. The historical 35–45 second stall occurred during conversion. | Long-session stability and arbitrary seeking. |
+
+Conversion selects the first audio track, encodes stereo AAC and copies supported H.264 video. Its fragmented MP4 pipe supplies data sequentially. Seeking beyond generated output requires a different delivery path, such as a seek request that restarts conversion at a source timestamp. FFmpeg and ffprobe belong on the backend host. Browser users need no yt-dlp, codec pack or external player for this workflow.
+
+### Metadata integrations
+
+TMDB supplies catalogue, metadata and season data when configured. Cinemeta supports keyless lookup. TMDB title enrichment uses OMDb ratings, Fanart.tv movie logos and RPDB poster URLs. TheTVDB currently has a credential test only. TorBox supplies availability, downloads and playback links. A successful credential check establishes access to that probe, not complete metadata coverage. TorBox poster matching from release filenames is best-effort.
+
+### Instance data and client preferences
+
+This build is for a trusted local instance. Provider credentials live in the instance MongoDB configuration. Anyone with access to that database can read them. Separate installations use separate databases. One shared deployment currently shares settings and saved titles across visitors; it needs account isolation before public multi-user hosting. Browser local storage remembers display preferences such as poster size and theme.
+
+New add-on installations use private random installation identifiers. Older installation links can contain an encoded TorBox key and should be treated as credentials. Rated posters are served through the backend to keep the RPDB key out of browser image URLs.
+
+Discover poster and title links open the detail page. More like this steers recommendations. Save on a title retains it before a release is chosen. Source filtering and sorting apply to the full returned set; the page renders 24 matches at a time. Fetching additional upstream results incrementally is separate work.
