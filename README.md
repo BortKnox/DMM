@@ -1,6 +1,6 @@
 # DMM — DEBRID MEDIA MANAGER
 
-**A dark, fast front end for TorBox: search a title, see which sources are already cached, play or cache with one click, and take it all into Stremio as a plugin.**
+**A light-first front end for TorBox: search a title, see which sources are already cached, play or cache with one click, and take it all into Stremio as a plugin.**
 
 ```
 UNIT     DMM
@@ -11,8 +11,7 @@ STATUS   ACTIVE
 
 ## WHAT IT DOES
 
-- **Discover and search.** Trending, movies and TV browsing and global search, with metadata, posters and
-  seasons from TMDB. Real pagination.
+- **Discover and search.** Browse movies and TV, search titles, and explore seasons through Cinemeta without an API key. Add TMDB in Settings to switch the catalogue provider.
 - **Sources.** Pulls results from seven indexers per title, merges and de-duplicates them, and marks what is
   already cached on TorBox. Sort by match, seeders, size or resolution; filter by regex, instant-only or
   resolution.
@@ -21,7 +20,7 @@ STATUS   ACTIVE
 - **Library.** Your TorBox library with cover art, grid and list views, download and delete.
 - **Stremio plugin.** Generates a per-user `manifest.json` serving streams, a library catalogue and metadata.
 - **Keys stay with you.** No keys ship in the code. TorBox and TMDB (plus optional OMDb, RPDB, Fanart and
-  TheTVDB) are entered on first run or in Settings, each with a Test button, and stored in your own MongoDB.
+  TheTVDB) are entered in Settings, each with a Test button, and stored in your own MongoDB.
   "Disconnect and erase keys" wipes them.
 
 ## RUN IT

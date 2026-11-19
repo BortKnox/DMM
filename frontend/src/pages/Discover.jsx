@@ -47,7 +47,7 @@ export default function Discover() {
       <img className="still" src={art(current,"background")} alt="" key={current.id}/>
       <div className="feature" aria-live="polite"><small>{current.year}　/　{current.minutes} MIN</small>
         <h2>{current.title}</h2><p>{current.pitch}</p>
-        <div className="actions"><Link to={`/title/movie/${current.id}`}>Find a release</Link>{history.length > 0 && <button onClick={back}>Previous pick</button>}</div>
+        <div className="actions"><Link to={`/title/movie/${current.imdb}`}>Find a release</Link>{history.length > 0 && <button onClick={back}>Previous pick</button>}</div>
       </div>
     </section>
     <section className="shelf"><div className="section-head"><h2>Where to next?</h2><small>TONIGHT’S SELECTION</small></div>

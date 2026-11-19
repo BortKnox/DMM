@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import List, Optional
 from urllib.parse import quote
 
+import cinemeta
 import httpx
 from fastapi import FastAPI, APIRouter, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, JSONResponse, StreamingResponse
@@ -764,7 +765,9 @@ async def update_settings(body: SettingsIn):
 
 
 @api_router.get("/search")
-async def search(q: str = Query(...), page: int = 1):
+async def search(q: str = Query(..., min_length=1), page: int = Query(1, ge=1)):
+    if not await get_tmdb_key():
+        return await cinemeta.search(q, page)
     data = await tmdb_get("/search/multi", {"query": q, "page": page, "include_adult": "false"})
     seen, items = set(), []
     for it in data.get("results", []):
@@ -790,7 +793,14 @@ async def trending():
 
 
 @api_router.get("/discover/{media_type}")
-async def discover(media_type: str, page: int = 1):
+async def discover(media_type: str, page: int = Query(1, ge=1)):
+    if not await get_tmdb_key():
+        key = ("cinemeta-catalogue", media_type)
+        items = cache_get(key)
+        if items is None:
+            items = await cinemeta.catalogue(media_type)
+            cache_set(key, items)
+        return cinemeta.paginate(items, page)
     mt = "tv" if media_type == "series" else "movie"
     data = await tmdb_get(f"/{mt}/popular", {"page": page})
     items = []
@@ -802,8 +812,20 @@ async def discover(media_type: str, page: int = 1):
     return {"results": items, "page": page, "total_pages": min(data.get("total_pages", 1), 500)}
 
 
+async def cinemeta_detail(kind, imdb):
+    key = ("cinemeta-detail", kind, imdb)
+    data = cache_get(key)
+    if data is None:
+        data = await cinemeta.details(kind, imdb)
+        cache_set(key, data, 3600)
+    return data
+
+
 @api_router.get("/meta/{media_type}/{tmdb_id}")
-async def meta(media_type: str, tmdb_id: int):
+async def meta(media_type: str, tmdb_id: str):
+    if str(tmdb_id).startswith("tt"):
+        info, _ = await cinemeta_detail(media_type, tmdb_id)
+        return info
     ck = ("meta", media_type, tmdb_id)
     hit = cache_get(ck)
     if hit is not None:
@@ -834,7 +856,11 @@ async def meta(media_type: str, tmdb_id: int):
 
 
 @api_router.get("/season/{tmdb_id}/{season_number}")
-async def season_eps(tmdb_id: int, season_number: int):
+async def season_eps(tmdb_id: str, season_number: int):
+    if str(tmdb_id).startswith("tt"):
+        _, videos = await cinemeta_detail("series", tmdb_id)
+        return {"episodes": [{"episode_number": v["episode"], "name": v.get("title") or v.get("name") or f"Episode {v['episode']}"}
+                             for v in sorted(videos, key=lambda v: v["episode"]) if v["season"] == season_number]}
     data = await tmdb_get(f"/tv/{tmdb_id}/season/{season_number}")
     eps = [{"episode_number": e.get("episode_number"), "name": e.get("name"),
             "overview": e.get("overview", ""),
@@ -970,7 +996,7 @@ async def reset_config():
 
 
 @api_router.get("/warm/{media_type}/{tmdb_id}")
-async def warm(media_type: str, tmdb_id: int):
+async def warm(media_type: str, tmdb_id: str):
     try:
         m = await meta(media_type, tmdb_id)
     except Exception:

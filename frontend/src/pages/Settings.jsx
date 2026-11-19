@@ -6,7 +6,7 @@ import { api } from "@/lib/api";
 
 const KEY_FIELDS = [
   { id: "torbox", field: "torbox_api_key", label: "TorBox API Key", required: true, testable: true, hint: "torbox.app → Settings → API. Powers caching, library & streaming." },
-  { id: "tmdb", field: "tmdb_api_key", label: "TMDB API Key", required: true, testable: true, hint: "themoviedb.org/settings/api (v3). Posters, titles, catalogs." },
+  { id: "tmdb", field: "tmdb_api_key", label: "TMDB API Key", required: false, testable: true, hint: "themoviedb.org/settings/api (v3). Optional alternative to the built-in Cinemeta catalogue." },
   { id: "omdb", field: "omdb_api_key", label: "OMDb API Key", required: false, testable: true, hint: "omdbapi.com. Rotten Tomatoes & Metacritic scores." },
   { id: "rpdb", field: "rpdb_api_key", label: "RPDB API Key", required: false, testable: true, hint: "ratingposterdb.com. Posters with ratings baked in." },
   { id: "fanart", field: "fanart_api_key", label: "Fanart.tv API Key", required: false, testable: true, hint: "fanart.tv. HD logos on title pages." },

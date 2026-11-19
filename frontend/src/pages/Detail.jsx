@@ -26,6 +26,8 @@ export default function Detail() {
   const [season, setSeason] = useState(1);
   const [episode, setEpisode] = useState(1);
   const [filter, setFilter] = useState("");
+  const [minSize, setMinSize] = useState("");
+  const [maxSize, setMaxSize] = useState("");
   const [resChip, setResChip] = useState(null);
   const [cachedOnly, setCachedOnly] = useState(false);
   const [view, setView] = useState("list");
@@ -58,9 +60,14 @@ export default function Detail() {
 
   useEffect(() => { setEpisode(1); }, [season]);
 
-  const sources = sourcesData?.sources || [];
+  const sources = sourcesData?.sources;
   const filtered = useMemo(() => {
-    let list = [...sources];
+    let list = [...(sources || [])];
+    if (minSize || maxSize) {
+      list = list.filter(({ size }) => size > 0
+        && (!minSize || size >= Number(minSize) * 1024 ** 3)
+        && (!maxSize || size <= Number(maxSize) * 1024 ** 3));
+    }
     if (cachedOnly) list = list.filter((s) => s.cached);
     if (resChip) list = list.filter((s) => s.quality?.resolution === resChip);
     if (filter.trim()) {
@@ -76,7 +83,7 @@ export default function Detail() {
     };
     list.sort(sorters[sort]);
     return list;
-  }, [sources, filter, resChip, cachedOnly, sort]);
+  }, [sources, minSize, maxSize, filter, resChip, cachedOnly, sort]);
 
   const currentSeason = (meta?.seasons || []).find((s) => s.season_number === season);
 
@@ -206,6 +213,9 @@ export default function Detail() {
             <input data-testid="source-filter-input" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter results (supports regex)…"
               className="w-full bg-white/5 border border-white/10 rounded-full pl-9 pr-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
           </div>
+          <label>Min GB <input aria-label="Minimum size in GB" type="number" min="0" step="any" value={minSize} onChange={e => setMinSize(e.target.value)} className="w-16 px-2 py-1 border rounded" /></label>
+          <label>Max GB <input aria-label="Maximum size in GB" type="number" min="0" step="any" value={maxSize} onChange={e => setMaxSize(e.target.value)} className="w-16 px-2 py-1 border rounded" /></label>
+          {minSize && maxSize && Number(minSize) > Number(maxSize) && <span role="alert">Maximum must be at least the minimum.</span>}
           <button data-testid="cached-only-toggle" onClick={() => setCachedOnly((v) => !v)}
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${cachedOnly ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300" : "bg-white/5 border-white/10 text-slate-400 hover:text-slate-200"}`}>
             <Zap size={13} /> Instant only
