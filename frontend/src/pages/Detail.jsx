@@ -1,3 +1,4 @@
+import SaveTitle from "@/components/SaveTitle";
 import { useState, useMemo, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -28,6 +29,8 @@ export default function Detail() {
   const [filter, setFilter] = useState("");
   const [minSize, setMinSize] = useState("");
   const [maxSize, setMaxSize] = useState("");
+  const [limit, setLimit] = useState(24);
+  useEffect(() => setLimit(24), [tmdbId, season, episode, filter, minSize, maxSize]);
   const [resChip, setResChip] = useState(null);
   const [cachedOnly, setCachedOnly] = useState(false);
   const [view, setView] = useState("list");
@@ -135,6 +138,7 @@ export default function Detail() {
             <div>
               {meta.logo ? <img src={meta.logo} alt={meta.title} className="max-h-24 max-w-[70%] object-contain drop-shadow-lg mb-1" />
                 : <h1 className="font-heading text-3xl md:text-5xl font-extrabold tracking-tighter text-white leading-none">{meta.title}</h1>}
+              <SaveTitle type={mediaType} id={tmdbId} title={meta.title}/>
               {meta.tagline && <p className="italic text-slate-400 text-sm mt-2">{meta.tagline}</p>}
               <div className="flex flex-wrap items-center gap-2 mt-3 text-xs text-slate-300">
                 <span className="inline-flex items-center gap-1 text-amber-300"><Star size={13} className="fill-amber-300" /> {meta.rating}</span>
@@ -233,16 +237,17 @@ export default function Detail() {
         ) : filtered.length ? (
           view === "grid" ? (
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3" data-testid="sources-list">
-              {filtered.map((s) => <SourceRow key={s.hash} source={s} mediaContext={{ title: meta.title, imdb_id: meta.imdb_id, media_type: mediaType, ...(isSeries && { season, episode }) }} onPlay={onPlay} compact />)}
+              {filtered.slice(0, limit).map((s) => <SourceRow key={s.hash} source={s} mediaContext={{ title: meta.title, imdb_id: meta.imdb_id, media_type: mediaType, ...(isSeries && { season, episode }) }} onPlay={onPlay} compact />)}
             </div>
           ) : (
             <div className="space-y-2" data-testid="sources-list">
-              {filtered.map((s) => <SourceRow key={s.hash} source={s} mediaContext={{ title: meta.title, imdb_id: meta.imdb_id, media_type: mediaType, ...(isSeries && { season, episode }) }} onPlay={onPlay} />)}
+              {filtered.slice(0, limit).map((s) => <SourceRow key={s.hash} source={s} mediaContext={{ title: meta.title, imdb_id: meta.imdb_id, media_type: mediaType, ...(isSeries && { season, episode }) }} onPlay={onPlay} />)}
             </div>
           )
         ) : (
           <div className="py-16 text-center text-slate-500" data-testid="sources-empty">No sources match your filters.</div>
         )}
+        {!sourcesLoading && filtered.length > limit && <button className="save-title mt-4" onClick={() => setLimit(limit + 24)}>Show more ({filtered.length - limit} remaining)</button>}
       </div>
     </div>
   );

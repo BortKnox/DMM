@@ -81,3 +81,11 @@ Conversion selects the first audio track, encodes stereo AAC and copies supporte
 ### Metadata integrations
 
 TMDB supplies catalogue, metadata and season data when configured. Cinemeta supports keyless lookup. TMDB title enrichment uses OMDb ratings, Fanart.tv movie logos and RPDB poster URLs. TheTVDB currently has a credential test only. TorBox supplies availability, downloads and playback links. A successful credential check establishes access to that probe, not complete metadata coverage. TorBox poster matching from release filenames is best-effort.
+
+### Instance data and client preferences
+
+This build is for a trusted local instance. Provider credentials live in the instance MongoDB configuration. Anyone with access to that database can read them. Separate installations use separate databases. One shared deployment currently shares settings and saved titles across visitors; it needs account isolation before public multi-user hosting. Browser local storage remembers display preferences such as poster size and theme.
+
+New add-on installations use private random installation identifiers. Older installation links can contain an encoded TorBox key and should be treated as credentials. Rated posters are served through the backend to keep the RPDB key out of browser image URLs.
+
+Discover poster and title links open the detail page. More like this steers recommendations. Save on a title retains it before a release is chosen. Source filtering and sorting apply to the full returned set; the page renders 24 matches at a time. Fetching additional upstream results incrementally is separate work.

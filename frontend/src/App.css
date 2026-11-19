@@ -20,3 +20,4 @@
 .bench .font-heading{font-family:Inter,Arial,sans-serif}
 .bench :is([data-testid^="media-card-"],section:has(img.absolute),div.relative:has(> img.absolute),.aspect-video){--fg:white;--muted:#d5dcd3}
 .bench ::selection{background:#ff956a;color:#20251f}
+.bench .save-title{background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:4px;font-size:.875rem;padding:.32rem .55rem}.bench .save-title:hover{border-color:var(--accent)}.pick-actions{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem;padding:.45rem .6rem;margin-top:auto;font-size:.85rem}.discovery .picks{margin-top:.65rem}.bench .discovery{background:var(--sheet);color:var(--fg)}

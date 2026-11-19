@@ -1,3 +1,5 @@
+import SaveTitle from "@/components/SaveTitle";
+import { usePosterSize } from "@/components/PosterSize";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import "./Discover.css";
@@ -21,6 +23,7 @@ const art = (film, type) => `https://images.metahub.space/${type}/${type === "po
 const overlap = (a, b) => a.tags.filter(tag => b.tags.includes(tag));
 
 export default function Discover() {
+  const posters = usePosterSize();
   const [current, setCurrent] = useState(films[0]);
   const [mood, setMood] = useState("Everything");
   const [history, setHistory] = useState([]);
@@ -47,14 +50,14 @@ export default function Discover() {
       <img className="still" src={art(current,"background")} alt="" key={current.id}/>
       <div className="feature" aria-live="polite"><small>{current.year}　/　{current.minutes} MIN</small>
         <h2>{current.title}</h2><p>{current.pitch}</p>
-        <div className="actions"><Link to={`/title/movie/${current.imdb}`}>Find a release</Link>{history.length > 0 && <button onClick={back}>Previous pick</button>}</div>
+        <div className="actions"><Link to={`/title/movie/${current.imdb}`}>Find a release</Link><SaveTitle id={current.imdb} type="movie" title={current.title}/>{history.length > 0 && <button onClick={back}>Previous pick</button>}</div>
       </div>
     </section>
     <section className="shelf"><div className="section-head"><h2>Where to next?</h2><small>TONIGHT’S SELECTION</small></div>
       <div className="moods" aria-label="Filter suggestions">{moods.map(m => <button key={m} aria-pressed={mood === m} onClick={() => setMood(m)}>{m}</button>)}</div>
-      <div className="picks">{connected.map(f => <button className="pick" key={f.id} onClick={() => {choose(f); window.scrollTo({top:0,behavior:"instant"});}}>
+      {posters.control}<div className="picks" style={posters.style}>{connected.map(f => <article className="pick" key={f.id}><Link to={`/title/movie/${f.imdb}`}>
         <img src={art(f,"poster")} alt="" loading="lazy"/><span><small>{f.year} · {f.minutes} min</small><strong>{f.title}</strong><em>{overlap(current,f)[0] || (mood === "Everything" ? f.tags[0] : mood)}</em></span>
-      </button>)}</div>
+      </Link><div className="pick-actions"><SaveTitle id={f.imdb} type="movie" title={f.title}/><button onClick={() => {choose(f);window.scrollTo(0,0);}}>More like this</button></div></article>)}</div>
       {origin && <p className="trail">Last pick · {origin.title}</p>}
     </section>
   </div>;

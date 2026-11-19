@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+import { usePosterSize } from "@/components/PosterSize";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -19,6 +21,9 @@ function pickVideo(files = []) {
 }
 
 function TorBoxLibrary() {
+  const posters = usePosterSize();
+  const [page, setPage] = useState(1);
+  const [count, setCount] = useState(24);
   const qc = useQueryClient();
   const [view, setView] = useState("grid");
   const [player, setPlayer] = useState({ open: false, url: null, loading: false, title: "" });
@@ -40,7 +45,10 @@ function TorBoxLibrary() {
     } catch { toast.error("Could not get stream link"); setPlayer({ open: false, url: null, loading: false, title: "" }); }
   };
 
-  const lib = data?.library || [];
+  const all = data?.library || [];
+  const last = Math.max(1, Math.ceil(all.length / count));
+  const current = Math.min(page, last);
+  const lib = all.slice((current-1)*count, current*count);
 
   return (
     <div className="px-4 md:px-12 py-8 pb-20">
@@ -62,13 +70,17 @@ function TorBoxLibrary() {
         </div>
       </div>
 
+      <div className="flex gap-3 flex-wrap mb-4">{view === "grid" && posters.control}
+        <label>Per page <select value={count} onChange={e=>{setCount(Number(e.target.value));setPage(1);}}>{[12,24,48].map(n=><option key={n}>{n}</option>)}</select></label>
+        <button disabled={current===1} onClick={()=>setPage(current-1)}>Previous</button><span>{current} / {last}</span>
+        <button disabled={current===last} onClick={()=>setPage(current+1)}>Next</button></div>
       {isLoading ? (
         <div className={view === "grid" ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4" : "grid gap-3"}>
           {Array.from({ length: 10 }).map((_, i) => <div key={i} className={`${view === "grid" ? "aspect-[2/3]" : "h-24"} rounded-xl skeleton`} />)}
         </div>
       ) : lib.length ? (
         view === "grid" ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4" data-testid="library-list">
+          <div style={posters.style} className="gap-4" data-testid="library-list">
             {lib.map((item) => (
               <div key={item.id} className="group relative rounded-xl overflow-hidden border border-white/5 bg-[#0C0D12] hover:border-blue-500/40 transition-colors">
                 <div className="relative aspect-[2/3]">
@@ -151,7 +163,7 @@ function SavedLibrary() {
     {data?.items.map(item => <article key={item._id} className="mt-4 flex items-center gap-4 rounded border border-white/10 p-3">
       <img className="w-12 rounded" alt="" src={`https://images.metahub.space/poster/small/${item.imdb_id}/img`}/>
       <div className="min-w-0 flex-1"><strong>{item.title}</strong>{item.season != null && <span> · S{item.season} E{item.episode}</span>}<p className="break-words text-sm">{item.name}</p></div>
-      <button onClick={() => play(item)}>Play</button>
+      {item.kind === "title" ? <Link to={`/title/${item.media_type}/${item.catalog_id}`}>Open title</Link> : <button onClick={() => play(item)}>Play</button>}
       <button onClick={() => remove.mutate(item._id)}>Unsave</button>
     </article>)}
   </section>;

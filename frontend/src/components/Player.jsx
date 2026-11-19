@@ -46,7 +46,7 @@ export default function Player({ open, url, title, loading, onClose }) {
           <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-white/10 flex-wrap">
             <p className="text-[11px] text-slate-500 flex items-center gap-1.5">
               {universal
-                ? <><Wand2 size={12} className="text-blue-400" /> Server conversion: stereo AAC. Seeking may be limited.</>
+                ? <><Wand2 size={12} className="text-blue-400" /> Converting for this browser · stereo AAC. Skip ahead is unavailable until that section is converted.</>
                 : <><Zap size={12} className="text-amber-400" /> Direct playback. Picture but no sound? Try server conversion.</>}
             </p>
             <div className="flex items-center gap-2">

@@ -2,6 +2,7 @@ import os
 import re
 import time
 import base64
+import secrets
 import json
 import asyncio
 import logging
@@ -576,7 +577,7 @@ async def enrich_meta(m, keys):
         tasks["fanart"] = ("get", f"https://webservice.fanart.tv/v3/movies/{imdb_id}?api_key={keys['fanart']}")
     if not tasks:
         if keys.get("rpdb"):
-            m["poster"] = f"https://api.ratingposterdb.com/{keys['rpdb']}/imdb/poster-default/{imdb_id}.jpg?fallback=true"
+            m["poster"] = f"/api/poster/{imdb_id}"
         return
     async with httpx.AsyncClient() as http:
         results = await asyncio.gather(*[http.get(u, timeout=12) for _, u in tasks.values()], return_exceptions=True)
@@ -608,7 +609,7 @@ async def enrich_meta(m, keys):
             if en:
                 m["logo"] = en[0].get("url")
     if keys.get("rpdb"):
-        m["poster"] = f"https://api.ratingposterdb.com/{keys['rpdb']}/imdb/poster-default/{imdb_id}.jpg?fallback=true"
+        m["poster"] = f"/api/poster/{imdb_id}"
 
 
 # ------------------------- MODELS -------------------------
@@ -941,41 +942,29 @@ async def resolve(body: ResolveIn):
 _poster_sem = asyncio.Semaphore(20)
 
 async def match_poster(name):
-    ck = ("poster", (name or "")[:70])
-    hit = cache_get(ck)
-    if hit is not None:
-        return hit
-    clean = re.sub(r"[._]", " ", name or "")
-    clean = re.split(r"\b(19|20)\d{2}\b|\b(1080p|720p|2160p|480p|s\d{1,2}|complete|season)\b", clean, flags=re.I)[0].strip()
-    poster = None
-    try:
-        async with _poster_sem:
-            d = await tmdb_get("/search/multi", {"query": clean[:60]})
-        for c in d.get("results", []):
-            if c.get("media_type") not in ("movie", "tv"):
-                continue
-            m = map_tmdb_item(c)
-            if m["poster"]:
-                poster = m["poster"]
-                break
-    except Exception:
-        pass
-    cache_set(ck, poster, 86400)
-    return poster
+    result = await match_tmdb(name)
+    return result.get("poster") if result else None
 
 
 async def match_tmdb(name):
-    ck = ("tmatch", (name or "")[:70])
+    clean = re.sub(r"[._]", " ", name or "")
+    episode = re.search(r"\b(?:s\d{1,2}(?:\s*e\d{1,3})?|\d{1,2}x\d{1,3}|season\s*\d+)\b", clean, re.I)
+    if episode:
+        clean = clean[:episode.start()]
+    clean = re.split(r"\b(?:19|20)\d{2}\b|\b(?:1080p|720p|2160p|480p|complete)\b", clean, flags=re.I)[0].strip(" []()-")
+    if not clean:
+        return None
+    ck = ("tmatch", bool(episode), clean.casefold())
     hit = cache_get(ck)
     if hit is not None:
         return hit
-    clean = re.sub(r"[._]", " ", name or "")
-    clean = re.split(r"\b(19|20)\d{2}\b|\b(1080p|720p|2160p|480p|s\d{1,2}|complete|season)\b", clean, flags=re.I)[0].strip()
     res = None
     try:
         async with _poster_sem:
-            d = await tmdb_get("/search/multi", {"query": clean[:60]})
+            d = await tmdb_get("/search/tv" if episode else "/search/multi", {"query": clean[:60]})
         for c in d.get("results", []):
+            if episode:
+                c["media_type"] = "tv"
             if c.get("media_type") not in ("movie", "tv"):
                 continue
             m = map_tmdb_item(c)
@@ -1073,6 +1062,41 @@ async def transcode(src: str, force: int = 0):
                              headers={"Cache-Control": "no-store", "Content-Disposition": "inline"})
 
 
+@api_router.get("/poster/{imdb}")
+async def rated_poster(imdb: str):
+    from fastapi.responses import Response
+    if not re.fullmatch(r"tt[0-9]+", imdb):
+        raise HTTPException(404)
+    key = (await get_keys())["rpdb"]
+    if not key:
+        raise HTTPException(404)
+    async with httpx.AsyncClient(follow_redirects=True) as http:
+        result = await http.get(f"https://api.ratingposterdb.com/{key}/imdb/poster-default/{imdb}.jpg", params={"fallback": "true"})
+    if not result.is_success or not result.headers.get("content-type", "").startswith("image/"):
+        raise HTTPException(404)
+    return Response(result.content, media_type=result.headers["content-type"], headers={"Cache-Control":"private, max-age=3600"})
+
+
+class SavedTitle(BaseModel):
+    media_type: str
+    catalog_id: str
+    title: str
+
+
+@api_router.put("/saved/title")
+async def save_title(body: SavedTitle):
+    if body.media_type not in ("movie", "series") or not re.fullmatch(r"(tt)?[0-9]+", body.catalog_id):
+        raise HTTPException(422, "Invalid title")
+    info = await meta(body.media_type, body.catalog_id)
+    imdb = info.get("imdb_id")
+    identity = f"title:{body.media_type}:{imdb or body.catalog_id}"
+    await db.saved_releases.update_one({"_id":identity}, {"$set":{
+        "kind":"title", "title":info["title"], "imdb_id":imdb,
+        "media_type":body.media_type, "catalog_id":body.catalog_id},
+        "$setOnInsert":{"created":now_iso()}}, upsert=True)
+    return {"success":True}
+
+
 class SavedRelease(BaseModel):
     imdb_id: str
     media_type: str
@@ -1164,7 +1188,14 @@ def public_base(request: Request) -> str:
     return f"{proto}://{host}" if host else str(request.base_url).rstrip("/")
 
 
-def decode_config(cfg):
+async def decode_config(cfg):
+    if cfg.startswith("install-"):
+        record = await db.addon_installs.find_one({"_id": cfg})
+        if not record:
+            raise HTTPException(404, "Unknown installation")
+        return {"k": record.get("key_override") or await get_torbox_key(), "s": record["sources"]}
+    # Existing installations still carry their original settings.
+
     try:
         pad = cfg + "=" * (-len(cfg) % 4)
         return json.loads(base64.urlsafe_b64decode(pad).decode())
@@ -1177,8 +1208,9 @@ async def stremio_manifest_url(body: SettingsIn, request: Request):
     keys = await get_keys()
     key = (body.torbox_api_key or "").strip() or keys["torbox"]
     srcs = body.sources or keys["sources"]
-    cfg = {"k": key, "s": srcs}
-    enc = base64.urlsafe_b64encode(json.dumps(cfg).encode()).decode().rstrip("=")
+    enc = "install-" + secrets.token_urlsafe(32)
+    await db.addon_installs.insert_one({"_id": enc, "sources": srcs,
+        "key_override": key if key != keys["torbox"] else None})
     base = public_base(request)
     url = f"{base}/api/stremio/{enc}/manifest.json"
     return {"config": enc, "manifest_url": url,
@@ -1205,7 +1237,7 @@ async def stremio_manifest(cfg: str):
 
 @api_router.get("/stremio/{cfg}/stream/{type}/{video_id}.json")
 async def stremio_stream(cfg: str, type: str, video_id: str, request: Request):
-    conf = decode_config(cfg)
+    conf = await decode_config(cfg)
     key = conf.get("k", "")
     srcs = conf.get("s") or DEFAULT_SOURCES
     vid = video_id.replace(".json", "")
@@ -1238,7 +1270,7 @@ async def stremio_stream(cfg: str, type: str, video_id: str, request: Request):
 
 @api_router.get("/stremio/{cfg}/resolve/{hash_}/{season}/{episode}/{name}")
 async def stremio_resolve(cfg: str, hash_: str, season: str, episode: str, name: str):
-    conf = decode_config(cfg)
+    conf = await decode_config(cfg)
     key = conf.get("k", "")
     s = int(season) if season not in ("-", "") else None
     e = int(episode) if episode not in ("-", "") else None
@@ -1250,7 +1282,7 @@ async def stremio_resolve(cfg: str, hash_: str, season: str, episode: str, name:
 
 @api_router.get("/stremio/{cfg}/catalog/{type}/{id}.json")
 async def stremio_catalog(cfg: str, type: str, id: str, request: Request):
-    conf = decode_config(cfg)
+    conf = await decode_config(cfg)
     key = conf.get("k", "")
     async with httpx.AsyncClient() as http:
         r = await http.get(f"{TORBOX_API}/torrents/mylist", params={"bypass_cache": "true"},
@@ -1285,7 +1317,7 @@ async def stremio_catalog(cfg: str, type: str, id: str, request: Request):
 
 @api_router.get("/stremio/{cfg}/meta/{type}/{id}.json")
 async def stremio_meta(cfg: str, type: str, id: str):
-    conf = decode_config(cfg)
+    conf = await decode_config(cfg)
     key = conf.get("k", "")
     idv = id.replace(".json", "")
     if not idv.startswith("dmm:"):
@@ -1320,7 +1352,7 @@ async def stremio_lib_stream(cfg: str, tid: int, fid: int, request: Request):
 
 @api_router.get("/stremio/{cfg}/libresolve/{tid}/{fid}")
 async def stremio_lib_resolve(cfg: str, tid: int, fid: int):
-    conf = decode_config(cfg)
+    conf = await decode_config(cfg)
     key = conf.get("k", "")
     async with httpx.AsyncClient() as http:
         r = await http.get(f"{TORBOX_API}/torrents/requestdl",

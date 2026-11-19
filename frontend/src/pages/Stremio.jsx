@@ -76,7 +76,7 @@ export default function Stremio() {
         </div>
         <div className="mt-4 flex items-center gap-2 text-xs text-slate-500">
           <Zap size={13} className={config?.torbox_connected ? "text-emerald-400" : "text-slate-500"} />
-          {config?.keys_set?.torbox ? "Your TorBox key will be embedded securely." : "Add your TorBox key in Settings first."}
+          {config?.keys_set?.torbox ? "Keep the installation link private. Credentials stay on this instance." : "Add your TorBox key in Settings first."}
         </div>
       </div>
 

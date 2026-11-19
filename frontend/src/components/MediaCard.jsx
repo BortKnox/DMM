@@ -1,3 +1,5 @@
+import SaveTitle from "@/components/SaveTitle";
+import { usePosterSize } from "@/components/PosterSize";
 import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Star, Film, Tv } from "lucide-react";
@@ -10,7 +12,7 @@ export function MediaCard({ item, index = 0 }) {
     api.warm(item.media_type, item.id);
   };
   return (
-    <Link
+    <div className="relative"><Link
       to={`/title/${item.media_type}/${item.id}`}
       onMouseEnter={warm}
       onFocus={warm}
@@ -45,17 +47,18 @@ export function MediaCard({ item, index = 0 }) {
           <p className="text-[11px] text-slate-400 mt-0.5">{item.year}</p>
         </div>
       </div>
-    </Link>
+    </Link><div className="absolute left-2 top-9"><SaveTitle id={item.id} type={item.media_type} title={item.title}/></div></div>
   );
 }
 
 export function MediaGrid({ items }) {
+  const posters = usePosterSize();
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-4">
+    <><div className="mb-3">{posters.control}</div><div style={posters.style} className="gap-4">
       {items.map((it, i) => (
         <MediaCard key={`${it.media_type}-${it.id}`} item={it} index={i} />
       ))}
-    </div>
+    </div></>
   );
 }
 
