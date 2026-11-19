@@ -1,3 +1,4 @@
+import { cataloguePage, useCatalogueCount } from "@/components/CatalogueCount";
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -9,13 +10,14 @@ import Pagination from "@/components/Pagination";
 export default function Home() {
   const { type } = useParams();
   const isBrowse = !!type;
+  const {count, control} = useCatalogueCount();
   const [page, setPage] = useState(1);
 
-  useEffect(() => { setPage(1); window.scrollTo(0, 0); }, [type]);
+  useEffect(() => { setPage(1); window.scrollTo(0, 0); }, [type, count]);
 
   const { data, isLoading, isError, isFetching, refetch } = useQuery({
-    queryKey: ["home", type || "trending", page],
-    queryFn: () => (isBrowse ? api.discover(type, page) : api.trending()),
+    queryKey: ["home", type || "trending", page, count],
+    queryFn: () => (isBrowse ? cataloguePage(n=>api.discover(type,n), page, count) : api.trending()),
     retry: 1,
   });
 
@@ -59,6 +61,7 @@ export default function Home() {
           </h2>
           {isBrowse && data && <span className="text-sm text-slate-500">Page {data.page} of {Math.min(data.total_pages, 500)}</span>}
         </div>
+        {isBrowse && control}
         {isLoading && <CardSkeleton />}
         {isError && <div role="alert" className="rounded border border-white/10 p-5">
           <p>Couldn’t load {title.toLowerCase()}. Check the catalogue connection.</p>
