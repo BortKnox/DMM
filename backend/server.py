@@ -42,6 +42,7 @@ TRACKERS = [
 ]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger("dmm")
 
 app = FastAPI(title="DMM - Debrid Media Manager")
@@ -1070,6 +1071,38 @@ async def transcode(src: str, force: int = 0):
                     pass
     return StreamingResponse(gen(), media_type="video/mp4",
                              headers={"Cache-Control": "no-store", "Content-Disposition": "inline"})
+
+
+class SavedRelease(BaseModel):
+    imdb_id: str
+    media_type: str
+    title: str
+    hash: str
+    name: str
+    season: Optional[int] = None
+    episode: Optional[int] = None
+
+
+@api_router.put("/saved")
+async def save_release(body: SavedRelease):
+    if not re.fullmatch(r"tt[0-9]+", body.imdb_id) or not re.fullmatch(r"[0-9a-fA-F]{40}", body.hash) or body.media_type not in ("movie", "series"):
+        raise HTTPException(422, "Invalid release identity")
+    item = body.model_dump()
+    item["hash"] = body.hash.lower()
+    identity = f"{body.imdb_id}:{item['hash']}:{body.season}:{body.episode}"
+    await db.saved_releases.update_one({"_id": identity}, {"$set": item, "$setOnInsert": {"created": now_iso()}}, upsert=True)
+    return {"success": True}
+
+
+@api_router.get("/saved")
+async def saved_library():
+    return {"items": await db.saved_releases.find({}).sort("created", -1).to_list(length=None)}
+
+
+@api_router.delete("/saved/{identity}")
+async def forget_release(identity: str):
+    await db.saved_releases.delete_one({"_id": identity})
+    return {"success": True}
 
 
 @api_router.get("/library")

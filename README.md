@@ -63,3 +63,21 @@ memory/PRD.md          # product notes and iteration history
 - You are responsible for how you use the services you connect and for the content you access with them.
 
 Personal project, shared as is. Issues and pull requests may not get a reply; forking is welcome.
+## Playback and library decisions
+
+The browser requests direct playback first. The TorBox resolver registers a torrent on the account to obtain its torrent and file IDs, then requests a temporary download link. Playing a source can therefore add a TorBox dashboard entry. DMM never automatically deletes that entry. Playing an existing TorBox download requests its file link directly.
+
+**Save to DMM** stores the selected release, title and optional episode in the instance database. It does not contact TorBox. Saving the same release and episode twice updates one record. **Unsave** only removes the DMM record. The separate **TorBox downloads** tab reads the connected account and its delete action affects TorBox.
+
+### Playback verification
+
+| Path | Observation | Remaining check |
+| --- | --- | --- |
+| Direct | User verified playback and seeking on a 720p release. A separate H.264 release labelled DDP 5.1 had picture and silent audio. | Device and track support vary. |
+| Server conversion | Local FFmpeg produced audible stereo and clear picture past five minutes on the reported release. The historical 35–45 second stall occurred during conversion. | Long-session stability and arbitrary seeking. |
+
+Conversion selects the first audio track, encodes stereo AAC and copies supported H.264 video. Its fragmented MP4 pipe supplies data sequentially. Seeking beyond generated output requires a different delivery path, such as a seek request that restarts conversion at a source timestamp. FFmpeg and ffprobe belong on the backend host. Browser users need no yt-dlp, codec pack or external player for this workflow.
+
+### Metadata integrations
+
+TMDB supplies catalogue, metadata and season data when configured. Cinemeta supports keyless lookup. TMDB title enrichment uses OMDb ratings, Fanart.tv movie logos and RPDB poster URLs. TheTVDB currently has a credential test only. TorBox supplies availability, downloads and playback links. A successful credential check establishes access to that probe, not complete metadata coverage. TorBox poster matching from release filenames is best-effort.

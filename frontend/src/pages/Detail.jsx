@@ -233,11 +233,11 @@ export default function Detail() {
         ) : filtered.length ? (
           view === "grid" ? (
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3" data-testid="sources-list">
-              {filtered.map((s) => <SourceRow key={s.hash} source={s} mediaContext={isSeries ? { season, episode } : null} onPlay={onPlay} compact />)}
+              {filtered.map((s) => <SourceRow key={s.hash} source={s} mediaContext={{ title: meta.title, imdb_id: meta.imdb_id, media_type: mediaType, ...(isSeries && { season, episode }) }} onPlay={onPlay} compact />)}
             </div>
           ) : (
             <div className="space-y-2" data-testid="sources-list">
-              {filtered.map((s) => <SourceRow key={s.hash} source={s} mediaContext={isSeries ? { season, episode } : null} onPlay={onPlay} />)}
+              {filtered.map((s) => <SourceRow key={s.hash} source={s} mediaContext={{ title: meta.title, imdb_id: meta.imdb_id, media_type: mediaType, ...(isSeries && { season, episode }) }} onPlay={onPlay} />)}
             </div>
           )
         ) : (

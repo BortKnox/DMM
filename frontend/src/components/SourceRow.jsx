@@ -30,8 +30,8 @@ function useActions(source, mediaContext, onPlay, onExternal) {
   const doAdd = async () => {
     setBusy("add");
     try {
-      const res = await api.add({ hash: source.hash, name: source.name });
-      if (res.success) { setAdded(true); toast.success(res.detail || "Added to your Library"); }
+      const res = await api.saveRelease({ ...mediaContext, hash: source.hash, name: source.name });
+      if (res.success) { setAdded(true); toast.success(res.detail || "Saved to DMM"); }
       else toast.error(res.detail || "Failed to add");
     } catch { toast.error("Failed to add to Library"); } finally { setBusy(null); }
   };
@@ -71,7 +71,7 @@ export default function SourceRow({ source, mediaContext, compact = false, onPla
             className="flex-1 inline-flex items-center justify-center gap-1 rounded-full bg-gradient-to-r from-blue-600 to-blue-400 px-2 py-1.5 text-[11px] font-semibold text-white hover:brightness-110 transition-[filter] disabled:opacity-60">
             {busy === "play" ? <Loader2 size={12} className="animate-spin" /> : <Play size={11} className="fill-white" />} Play
           </button>
-          <button data-testid={`add-btn-${id8}`} onClick={doAdd} disabled={busy === "add" || added} title="Add to Library"
+          <button data-testid={`add-btn-${id8}`} onClick={doAdd} disabled={busy === "add" || added} title="Save to DMM"
             className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 p-1.5 text-slate-300 hover:bg-white/10 transition-colors disabled:opacity-60">
             {added ? <CheckCircle2 size={13} className="text-emerald-400" /> : busy === "add" ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
           </button>
@@ -104,7 +104,7 @@ export default function SourceRow({ source, mediaContext, compact = false, onPla
         <button data-testid={`add-btn-${id8}`} onClick={doAdd} disabled={busy === "add" || added}
           className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-white/10 transition-colors disabled:opacity-60">
           {added ? <CheckCircle2 size={13} className="text-emerald-400" /> : busy === "add" ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
-          {added ? "Added" : "Add to Library"}
+          {added ? "Added" : "Save to DMM"}
         </button>
         <button data-testid={`copy-btn-${id8}`} onClick={copyMagnet}
           className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 p-2 text-slate-400 hover:text-slate-100 hover:bg-white/10 transition-colors" title="Copy magnet">
