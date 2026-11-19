@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+import { usePosterSize } from "@/components/PosterSize";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -18,7 +20,10 @@ function pickVideo(files = []) {
   return (vids.length ? vids : files).sort((a, b) => (b.size || 0) - (a.size || 0))[0];
 }
 
-export default function Library() {
+function TorBoxLibrary() {
+  const posters = usePosterSize();
+  const [page, setPage] = useState(1);
+  const [count, setCount] = useState(24);
   const qc = useQueryClient();
   const [view, setView] = useState("grid");
   const [player, setPlayer] = useState({ open: false, url: null, loading: false, title: "" });
@@ -40,7 +45,10 @@ export default function Library() {
     } catch { toast.error("Could not get stream link"); setPlayer({ open: false, url: null, loading: false, title: "" }); }
   };
 
-  const lib = data?.library || [];
+  const all = data?.library || [];
+  const last = Math.max(1, Math.ceil(all.length / count));
+  const current = Math.min(page, last);
+  const lib = all.slice((current-1)*count, current*count);
 
   return (
     <div className="px-4 md:px-12 py-8 pb-20">
@@ -48,7 +56,7 @@ export default function Library() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">TorBox</p>
-          <h1 className="font-heading text-3xl md:text-4xl font-bold tracking-tight metallic-text mt-1 flex items-center gap-3"><LibIcon /> Your Library</h1>
+          <h1 className="font-heading text-3xl md:text-4xl font-bold tracking-tight metallic-text mt-1 flex items-center gap-3"><LibIcon /> TorBox downloads</h1>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 rounded-full border border-white/10 bg-white/5 p-1">
@@ -62,13 +70,17 @@ export default function Library() {
         </div>
       </div>
 
+      <div className="flex gap-3 flex-wrap mb-4">{view === "grid" && posters.control}
+        <label>Per page <select value={count} onChange={e=>{setCount(Number(e.target.value));setPage(1);}}>{[12,24,48].map(n=><option key={n}>{n}</option>)}</select></label>
+        <button disabled={current===1} onClick={()=>setPage(current-1)}>Previous</button><span>{current} / {last}</span>
+        <button disabled={current===last} onClick={()=>setPage(current+1)}>Next</button></div>
       {isLoading ? (
         <div className={view === "grid" ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4" : "grid gap-3"}>
           {Array.from({ length: 10 }).map((_, i) => <div key={i} className={`${view === "grid" ? "aspect-[2/3]" : "h-24"} rounded-xl skeleton`} />)}
         </div>
       ) : lib.length ? (
         view === "grid" ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4" data-testid="library-list">
+          <div style={posters.style} className="gap-4" data-testid="library-list">
             {lib.map((item) => (
               <div key={item.id} className="group relative rounded-xl overflow-hidden border border-white/5 bg-[#0C0D12] hover:border-blue-500/40 transition-colors">
                 <div className="relative aspect-[2/3]">
@@ -126,4 +138,41 @@ export default function Library() {
       )}
     </div>
   );
+}
+
+function SavedLibrary() {
+  const qc = useQueryClient();
+  const {data, isLoading, isError, refetch} = useQuery({queryKey: ["saved"], queryFn: api.saved, staleTime: 0, refetchOnMount: "always"});
+  const [player, setPlayer] = useState({open: false});
+  const remove = useMutation({mutationFn: api.forget,
+    onSuccess: () => qc.invalidateQueries({queryKey:["saved"]}),
+    onError: () => toast.error("Could not remove saved release")});
+  async function play(item) {
+    setPlayer({open:true, loading:true, title:item.title});
+    try {
+      const {url} = await api.resolve({hash:item.hash, name:item.name, season:item.season, episode:item.episode});
+      setPlayer({open:true, url, title:item.title});
+    } catch { setPlayer({open:false}); toast.error("Could not resolve release"); }
+  }
+  return <section className="px-4 md:px-12 py-8">
+    <h1 className="text-3xl font-bold">Saved in DMM</h1>
+    <Player {...player} onClose={() => setPlayer({open:false})}/>
+    {isLoading && <p>Loading saved releases…</p>}
+    {isError && <button onClick={() => refetch()}>Could not load saved releases. Retry</button>}
+    {data?.items.length === 0 && <p className="mt-4">Choose Save to DMM on a release to keep it here.</p>}
+    {data?.items.map(item => <article key={item._id} className="mt-4 flex items-center gap-4 rounded border border-white/10 p-3">
+      <img className="w-12 rounded" alt="" src={`https://images.metahub.space/poster/small/${item.imdb_id}/img`}/>
+      <div className="min-w-0 flex-1"><strong>{item.title}</strong>{item.season != null && <span> · S{item.season} E{item.episode}</span>}<p className="break-words text-sm">{item.name}</p></div>
+      {item.kind === "title" ? <Link to={`/title/${item.media_type}/${item.catalog_id}`}>Open title</Link> : <button onClick={() => play(item)}>Play</button>}
+      <button onClick={() => remove.mutate(item._id)}>Unsave</button>
+    </article>)}
+  </section>;
+}
+
+export default function Library() {
+  const [tab, setTab] = useState("saved");
+  return <><nav aria-label="Library collections" className="flex gap-4 px-4 md:px-12 pt-6">
+    {[["saved","Saved in DMM"],["torbox","TorBox downloads"]].map(([id,label]) =>
+      <button key={id} aria-pressed={tab===id} className="rounded border border-current px-3 py-2 aria-pressed:font-bold" onClick={() => setTab(id)}>{label}</button>)}
+  </nav>{tab==="saved" ? <SavedLibrary/> : <TorBoxLibrary/>}</>;
 }

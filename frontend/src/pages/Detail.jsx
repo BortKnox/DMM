@@ -1,3 +1,6 @@
+import Ratings from "@/components/Ratings";
+import ReleaseFilters, { matchesRelease } from "@/components/ReleaseFilters";
+import SaveTitle from "@/components/SaveTitle";
 import { useState, useMemo, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -7,7 +10,6 @@ import { api } from "@/lib/api";
 import SourceRow from "@/components/SourceRow";
 import Player from "@/components/Player";
 
-const RES_CHIPS = ["2160p", "1080p", "720p", "480p"];
 const SORTS = [
   { id: "priority", label: "Best match" },
   { id: "seeders", label: "Most seeders" },
@@ -16,17 +18,17 @@ const SORTS = [
   { id: "resolution", label: "Resolution" },
 ];
 
-function ScoreBadge({ label, value, color }) {
-  if (!value || value === "N/A") return null;
-  return <span className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-[11px] font-semibold ${color}`}><span className="opacity-70">{label}</span> {value}</span>;
-}
-
 export default function Detail() {
   const { mediaType, tmdbId } = useParams();
   const [season, setSeason] = useState(1);
   const [episode, setEpisode] = useState(1);
   const [filter, setFilter] = useState("");
-  const [resChip, setResChip] = useState(null);
+  const [minSize, setMinSize] = useState("");
+  const [maxSize, setMaxSize] = useState("");
+  const [limit, setLimit] = useState(24);
+  const [batch, setBatch] = useState(24);
+  const [selection, setSelection] = useState({});
+  useEffect(() => setLimit(batch), [batch, tmdbId, season, episode, filter, minSize, maxSize, selection]);
   const [cachedOnly, setCachedOnly] = useState(false);
   const [view, setView] = useState("list");
   const [sort, setSort] = useState("priority");
@@ -58,11 +60,16 @@ export default function Detail() {
 
   useEffect(() => { setEpisode(1); }, [season]);
 
-  const sources = sourcesData?.sources || [];
+  const sources = sourcesData?.sources;
   const filtered = useMemo(() => {
-    let list = [...sources];
+    let list = [...(sources || [])];
+    if (minSize || maxSize) {
+      list = list.filter(({ size }) => size > 0
+        && (!minSize || size >= Number(minSize) * 1024 ** 3)
+        && (!maxSize || size <= Number(maxSize) * 1024 ** 3));
+    }
     if (cachedOnly) list = list.filter((s) => s.cached);
-    if (resChip) list = list.filter((s) => s.quality?.resolution === resChip);
+    list = list.filter(s => matchesRelease(s.quality || {}, selection));
     if (filter.trim()) {
       try { const re = new RegExp(filter, "i"); list = list.filter((s) => re.test(s.name)); }
       catch { list = list.filter((s) => s.name.toLowerCase().includes(filter.toLowerCase())); }
@@ -76,7 +83,7 @@ export default function Detail() {
     };
     list.sort(sorters[sort]);
     return list;
-  }, [sources, filter, resChip, cachedOnly, sort]);
+  }, [sources, minSize, maxSize, filter, selection, cachedOnly, sort]);
 
   const currentSeason = (meta?.seasons || []).find((s) => s.season_number === season);
 
@@ -126,8 +133,10 @@ export default function Detail() {
           <div className="flex gap-5 items-end max-w-4xl">
             {meta.poster && <img src={meta.poster} alt={meta.title} className="hidden sm:block w-28 md:w-40 rounded-lg border border-white/10 shadow-2xl" />}
             <div>
-              {meta.logo ? <img src={meta.logo} alt={meta.title} className="max-h-24 max-w-[70%] object-contain drop-shadow-lg mb-1" />
+              <div className="title-line">{meta.logo ? <img src={meta.logo} alt={meta.title} className="max-h-24 max-w-[70%] object-contain drop-shadow-lg mb-1" />
                 : <h1 className="font-heading text-3xl md:text-5xl font-extrabold tracking-tighter text-white leading-none">{meta.title}</h1>}
+              <SaveTitle type={mediaType} id={tmdbId} title={meta.title}/></div>
+              <details className="mt-2"><summary className="cursor-pointer">Title details</summary>
               {meta.tagline && <p className="italic text-slate-400 text-sm mt-2">{meta.tagline}</p>}
               <div className="flex flex-wrap items-center gap-2 mt-3 text-xs text-slate-300">
                 <span className="inline-flex items-center gap-1 text-amber-300"><Star size={13} className="fill-amber-300" /> {meta.rating}</span>
@@ -136,14 +145,12 @@ export default function Detail() {
                 {meta.rated && <span className="rounded border border-white/20 px-1.5 py-0.5 text-[10px]">{meta.rated}</span>}
                 {(meta.genres || []).slice(0, 3).map((g) => <span key={g} className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">{g}</span>)}
               </div>
-              {meta.ratings && (
-                <div className="flex flex-wrap items-center gap-2 mt-2" data-testid="external-ratings">
-                  <ScoreBadge label="RT" value={meta.ratings.rotten_tomatoes} color="bg-rose-500/10 border-rose-500/30 text-rose-300" />
-                  <ScoreBadge label="MC" value={meta.ratings.metacritic} color="bg-emerald-500/10 border-emerald-500/30 text-emerald-300" />
-                  <ScoreBadge label="IMDb" value={meta.ratings.imdb} color="bg-amber-500/10 border-amber-500/30 text-amber-300" />
-                </div>
-              )}
-              <p className="mt-3 text-sm text-slate-300 line-clamp-2 max-w-2xl">{meta.overview}</p>
+              <Ratings ratings={meta.ratings}/>
+              <p className="mt-3 text-sm text-slate-300  max-w-2xl">{meta.overview}</p>
+                {meta.creators?.length > 0 && <p>Filmmakers · {[].concat(meta.creators).join(", ")}</p>}
+                {meta.cast?.length > 0 && <p>Cast · {[].concat(meta.cast).join(", ")}</p>}
+                {meta.trailer && <a href={`https://www.youtube.com/watch?v=${encodeURIComponent(meta.trailer)}`} target="_blank" rel="noreferrer">Watch official trailer</a>}
+              </details>
             </div>
           </div>
         </div>
@@ -206,14 +213,16 @@ export default function Detail() {
             <input data-testid="source-filter-input" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filter results (supports regex)…"
               className="w-full bg-white/5 border border-white/10 rounded-full pl-9 pr-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50" />
           </div>
+          <label>Min GB <input aria-label="Minimum size in GB" type="number" min="0" step="any" value={minSize} onChange={e => setMinSize(e.target.value)} className="w-16 px-2 py-1 border rounded" /></label>
+          <label>Max GB <input aria-label="Maximum size in GB" type="number" min="0" step="any" value={maxSize} onChange={e => setMaxSize(e.target.value)} className="w-16 px-2 py-1 border rounded" /></label>
+          {minSize && maxSize && Number(minSize) > Number(maxSize) && <span role="alert">Maximum must be at least the minimum.</span>}
           <button data-testid="cached-only-toggle" onClick={() => setCachedOnly((v) => !v)}
             className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${cachedOnly ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300" : "bg-white/5 border-white/10 text-slate-400 hover:text-slate-200"}`}>
             <Zap size={13} /> Instant only
           </button>
-          {RES_CHIPS.map((r) => (
-            <button key={r} data-testid={`res-chip-${r}`} onClick={() => setResChip((v) => (v === r ? null : r))}
-              className={`rounded-full border px-3 py-2 text-xs font-semibold transition-colors ${resChip === r ? "bg-blue-500/15 border-blue-500/40 text-blue-300" : "bg-white/5 border-white/10 text-slate-400 hover:text-slate-200"}`}>{r}</button>
-          ))}
+          <label>Show at a time <select value={batch} onChange={e=>setBatch(Number(e.target.value))}>{[12,24,48,96].map(n=><option key={n}>{n}</option>)}</select></label>
+          <ReleaseFilters value={selection} onChange={setSelection}/>
+
         </div>
 
         {sourcesLoading ? (
@@ -223,16 +232,17 @@ export default function Detail() {
         ) : filtered.length ? (
           view === "grid" ? (
             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3" data-testid="sources-list">
-              {filtered.map((s) => <SourceRow key={s.hash} source={s} mediaContext={isSeries ? { season, episode } : null} onPlay={onPlay} compact />)}
+              {filtered.slice(0, limit).map((s) => <SourceRow key={s.hash} source={s} mediaContext={{ title: meta.title, imdb_id: meta.imdb_id, media_type: mediaType, ...(isSeries && { season, episode }) }} onPlay={onPlay} compact />)}
             </div>
           ) : (
             <div className="space-y-2" data-testid="sources-list">
-              {filtered.map((s) => <SourceRow key={s.hash} source={s} mediaContext={isSeries ? { season, episode } : null} onPlay={onPlay} />)}
+              {filtered.slice(0, limit).map((s) => <SourceRow key={s.hash} source={s} mediaContext={{ title: meta.title, imdb_id: meta.imdb_id, media_type: mediaType, ...(isSeries && { season, episode }) }} onPlay={onPlay} />)}
             </div>
           )
         ) : (
           <div className="py-16 text-center text-slate-500" data-testid="sources-empty">No sources match your filters.</div>
         )}
+        {!sourcesLoading && filtered.length > limit && <button className="save-title mt-4" onClick={() => setLimit(limit + batch)}>Show more ({filtered.length - limit} remaining)</button>}
       </div>
     </div>
   );

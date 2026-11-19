@@ -2,6 +2,7 @@ import "@/App.css";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
 import Layout from "@/components/Layout";
+import Discover from "@/pages/Discover";
 import Home from "@/pages/Home";
 import SearchResults from "@/pages/SearchResults";
 import Detail from "@/pages/Detail";
@@ -26,7 +27,7 @@ function App() {
         />
         <Layout>
           <Routes>
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={<Discover />} />
             <Route path="/search" element={<SearchResults />} />
             <Route path="/browse/:type" element={<Home />} />
             <Route path="/title/:mediaType/:tmdbId" element={<Detail />} />

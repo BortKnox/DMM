@@ -2,6 +2,7 @@ import os
 import re
 import time
 import base64
+import secrets
 import json
 import asyncio
 import logging
@@ -11,6 +12,7 @@ from pathlib import Path
 from typing import List, Optional
 from urllib.parse import quote
 
+import cinemeta
 import httpx
 from fastapi import FastAPI, APIRouter, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse, JSONResponse, StreamingResponse
@@ -41,6 +43,7 @@ TRACKERS = [
 ]
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger("dmm")
 
 app = FastAPI(title="DMM - Debrid Media Manager")
@@ -180,7 +183,7 @@ def tb_headers(key: str):
 def parse_quality(name: str) -> dict:
     n = name.lower()
     res = None
-    for r, pat in [("2160p", r"2160p|\b4k\b|uhd"), ("1080p", r"1080p|1080i"),
+    for r, pat in [("2160p", r"2160p|\b4k\b|uhd"), ("1440p", r"1440p|2560x1440"), ("1080p", r"1080p|1080i"),
                    ("720p", r"720p"), ("480p", r"480p|dvdrip|xvid")]:
         if re.search(pat, n):
             res = r
@@ -208,11 +211,12 @@ def parse_quality(name: str) -> dict:
         if re.search(pat, n):
             audio = a
             break
-    return {"resolution": res, "source": source, "codec": codec, "hdr": hdr, "audio": audio}
+    editions = [label for label, pattern in [("IMAX", r"imax"), ("Open Matte", r"open[ ._-]*matte")] if re.search(pattern, n)]
+    return {"editions": editions, "resolution": res, "source": source, "codec": codec, "hdr": hdr, "audio": audio}
 
 
 def res_rank(res: Optional[str]) -> int:
-    return {"2160p": 4, "1080p": 3, "720p": 2, "480p": 1}.get(res or "", 0)
+    return {"2160p": 5, "1440p": 4, "1080p": 3, "720p": 2, "480p": 1}.get(res or "", 0)
 
 
 def build_magnet(h: str, name: str) -> str:
@@ -574,7 +578,7 @@ async def enrich_meta(m, keys):
         tasks["fanart"] = ("get", f"https://webservice.fanart.tv/v3/movies/{imdb_id}?api_key={keys['fanart']}")
     if not tasks:
         if keys.get("rpdb"):
-            m["poster"] = f"https://api.ratingposterdb.com/{keys['rpdb']}/imdb/poster-default/{imdb_id}.jpg?fallback=true"
+            m["poster"] = f"/api/poster/{imdb_id}"
         return
     async with httpx.AsyncClient() as http:
         results = await asyncio.gather(*[http.get(u, timeout=12) for _, u in tasks.values()], return_exceptions=True)
@@ -606,7 +610,7 @@ async def enrich_meta(m, keys):
             if en:
                 m["logo"] = en[0].get("url")
     if keys.get("rpdb"):
-        m["poster"] = f"https://api.ratingposterdb.com/{keys['rpdb']}/imdb/poster-default/{imdb_id}.jpg?fallback=true"
+        m["poster"] = f"/api/poster/{imdb_id}"
 
 
 # ------------------------- MODELS -------------------------
@@ -713,6 +717,8 @@ async def config():
 @api_router.post("/test-key")
 async def test_key(body: TestKeyIn):
     s, k = body.service, body.key.strip()
+    if not k and s in ("tmdb","torbox","rpdb","omdb","fanart","thetvdb"):
+        k = (await get_keys())[s]
     if not k:
         return {"ok": False, "message": "Empty key"}
     try:
@@ -744,7 +750,7 @@ async def test_key(body: TestKeyIn):
                 ok = r.status_code == 200 and (r.json().get("status") == "success")
                 return {"ok": ok, "message": "TheTVDB key valid" if ok else "Invalid TheTVDB key"}
     except Exception as e:
-        return {"ok": False, "message": str(e)[:80]}
+        return {"ok": False, "message": "Provider request failed"}
     return {"ok": False, "message": "Unknown service"}
 
 
@@ -764,7 +770,9 @@ async def update_settings(body: SettingsIn):
 
 
 @api_router.get("/search")
-async def search(q: str = Query(...), page: int = 1):
+async def search(q: str = Query(..., min_length=1), page: int = Query(1, ge=1)):
+    if not await get_tmdb_key():
+        return await cinemeta.search(q, page)
     data = await tmdb_get("/search/multi", {"query": q, "page": page, "include_adult": "false"})
     seen, items = set(), []
     for it in data.get("results", []):
@@ -790,7 +798,14 @@ async def trending():
 
 
 @api_router.get("/discover/{media_type}")
-async def discover(media_type: str, page: int = 1):
+async def discover(media_type: str, page: int = Query(1, ge=1)):
+    if not await get_tmdb_key():
+        key = ("cinemeta-catalogue", media_type)
+        items = cache_get(key)
+        if items is None:
+            items = await cinemeta.catalogue(media_type)
+            cache_set(key, items)
+        return cinemeta.paginate(items, page)
     mt = "tv" if media_type == "series" else "movie"
     data = await tmdb_get(f"/{mt}/popular", {"page": page})
     items = []
@@ -802,14 +817,26 @@ async def discover(media_type: str, page: int = 1):
     return {"results": items, "page": page, "total_pages": min(data.get("total_pages", 1), 500)}
 
 
+async def cinemeta_detail(kind, imdb):
+    key = ("cinemeta-detail", kind, imdb)
+    data = cache_get(key)
+    if data is None:
+        data = await cinemeta.details(kind, imdb)
+        cache_set(key, data, 3600)
+    return data
+
+
 @api_router.get("/meta/{media_type}/{tmdb_id}")
-async def meta(media_type: str, tmdb_id: int):
+async def meta(media_type: str, tmdb_id: str):
+    if str(tmdb_id).startswith("tt"):
+        info, _ = await cinemeta_detail(media_type, tmdb_id)
+        return info
     ck = ("meta", media_type, tmdb_id)
     hit = cache_get(ck)
     if hit is not None:
         return hit
     mt = "tv" if media_type == "series" else "movie"
-    data = await tmdb_get(f"/{mt}/{tmdb_id}", {"append_to_response": "external_ids"})
+    data = await tmdb_get(f"/{mt}/{tmdb_id}", {"append_to_response": "external_ids,credits,videos"})
     ext = data.get("external_ids", {})
     m = map_tmdb_item({**data, "media_type": mt})
     seasons = []
@@ -821,6 +848,9 @@ async def meta(media_type: str, tmdb_id: int):
                             "episode_count": s.get("episode_count")})
     m.update({
         "imdb_id": ext.get("imdb_id"),
+        "cast": [actor["name"] for actor in (data.get("credits") or {}).get("cast", [])[:8] if actor.get("name")],
+        "creators": [c["name"] for c in data.get("created_by", []) if c.get("name")] or [c["name"] for c in (data.get("credits") or {}).get("crew", []) if c.get("job") == "Director" and c.get("name")],
+        "trailer": next((v["key"] for v in (data.get("videos") or {}).get("results", []) if v.get("official") and v.get("type") == "Trailer" and v.get("site") == "YouTube"), None),
         "genres": [g["name"] for g in data.get("genres", [])],
         "runtime": data.get("runtime") or (data.get("episode_run_time") or [None])[0],
         "seasons": seasons, "tagline": data.get("tagline"),
@@ -834,7 +864,11 @@ async def meta(media_type: str, tmdb_id: int):
 
 
 @api_router.get("/season/{tmdb_id}/{season_number}")
-async def season_eps(tmdb_id: int, season_number: int):
+async def season_eps(tmdb_id: str, season_number: int):
+    if str(tmdb_id).startswith("tt"):
+        _, videos = await cinemeta_detail("series", tmdb_id)
+        return {"episodes": [{"episode_number": v["episode"], "name": v.get("title") or v.get("name") or f"Episode {v['episode']}"}
+                             for v in sorted(videos, key=lambda v: v["episode"]) if v["season"] == season_number]}
     data = await tmdb_get(f"/tv/{tmdb_id}/season/{season_number}")
     eps = [{"episode_number": e.get("episode_number"), "name": e.get("name"),
             "overview": e.get("overview", ""),
@@ -914,41 +948,29 @@ async def resolve(body: ResolveIn):
 _poster_sem = asyncio.Semaphore(20)
 
 async def match_poster(name):
-    ck = ("poster", (name or "")[:70])
-    hit = cache_get(ck)
-    if hit is not None:
-        return hit
-    clean = re.sub(r"[._]", " ", name or "")
-    clean = re.split(r"\b(19|20)\d{2}\b|\b(1080p|720p|2160p|480p|s\d{1,2}|complete|season)\b", clean, flags=re.I)[0].strip()
-    poster = None
-    try:
-        async with _poster_sem:
-            d = await tmdb_get("/search/multi", {"query": clean[:60]})
-        for c in d.get("results", []):
-            if c.get("media_type") not in ("movie", "tv"):
-                continue
-            m = map_tmdb_item(c)
-            if m["poster"]:
-                poster = m["poster"]
-                break
-    except Exception:
-        pass
-    cache_set(ck, poster, 86400)
-    return poster
+    result = await match_tmdb(name)
+    return result.get("poster") if result else None
 
 
 async def match_tmdb(name):
-    ck = ("tmatch", (name or "")[:70])
+    clean = re.sub(r"[._]", " ", name or "")
+    episode = re.search(r"\b(?:s\d{1,2}(?:\s*e\d{1,3})?|\d{1,2}x\d{1,3}|season\s*\d+)\b", clean, re.I)
+    if episode:
+        clean = clean[:episode.start()]
+    clean = re.split(r"\b(?:19|20)\d{2}\b|\b(?:1080p|720p|2160p|480p|complete)\b", clean, flags=re.I)[0].strip(" []()-")
+    if not clean:
+        return None
+    ck = ("tmatch", bool(episode), clean.casefold())
     hit = cache_get(ck)
     if hit is not None:
         return hit
-    clean = re.sub(r"[._]", " ", name or "")
-    clean = re.split(r"\b(19|20)\d{2}\b|\b(1080p|720p|2160p|480p|s\d{1,2}|complete|season)\b", clean, flags=re.I)[0].strip()
     res = None
     try:
         async with _poster_sem:
-            d = await tmdb_get("/search/multi", {"query": clean[:60]})
+            d = await tmdb_get("/search/tv" if episode else "/search/multi", {"query": clean[:60]})
         for c in d.get("results", []):
+            if episode:
+                c["media_type"] = "tv"
             if c.get("media_type") not in ("movie", "tv"):
                 continue
             m = map_tmdb_item(c)
@@ -970,7 +992,7 @@ async def reset_config():
 
 
 @api_router.get("/warm/{media_type}/{tmdb_id}")
-async def warm(media_type: str, tmdb_id: int):
+async def warm(media_type: str, tmdb_id: str):
     try:
         m = await meta(media_type, tmdb_id)
     except Exception:
@@ -1046,6 +1068,73 @@ async def transcode(src: str, force: int = 0):
                              headers={"Cache-Control": "no-store", "Content-Disposition": "inline"})
 
 
+@api_router.get("/poster/{imdb}")
+async def rated_poster(imdb: str):
+    from fastapi.responses import Response
+    if not re.fullmatch(r"tt[0-9]+", imdb):
+        raise HTTPException(404)
+    key = (await get_keys())["rpdb"]
+    if not key:
+        raise HTTPException(404)
+    async with httpx.AsyncClient(follow_redirects=True) as http:
+        result = await http.get(f"https://api.ratingposterdb.com/{key}/imdb/poster-default/{imdb}.jpg", params={"fallback": "true"})
+    if not result.is_success or not result.headers.get("content-type", "").startswith("image/"):
+        raise HTTPException(404)
+    return Response(result.content, media_type=result.headers["content-type"], headers={"Cache-Control":"private, max-age=3600"})
+
+
+class SavedTitle(BaseModel):
+    media_type: str
+    catalog_id: str
+    title: str
+
+
+@api_router.put("/saved/title")
+async def save_title(body: SavedTitle):
+    if body.media_type not in ("movie", "series") or not re.fullmatch(r"(tt)?[0-9]+", body.catalog_id):
+        raise HTTPException(422, "Invalid title")
+    info = await meta(body.media_type, body.catalog_id)
+    imdb = info.get("imdb_id")
+    identity = f"title:{body.media_type}:{imdb or body.catalog_id}"
+    await db.saved_releases.update_one({"_id":identity}, {"$set":{
+        "kind":"title", "title":info["title"], "imdb_id":imdb,
+        "media_type":body.media_type, "catalog_id":body.catalog_id},
+        "$setOnInsert":{"created":now_iso()}}, upsert=True)
+    return {"success":True}
+
+
+class SavedRelease(BaseModel):
+    imdb_id: str
+    media_type: str
+    title: str
+    hash: str
+    name: str
+    season: Optional[int] = None
+    episode: Optional[int] = None
+
+
+@api_router.put("/saved")
+async def save_release(body: SavedRelease):
+    if not re.fullmatch(r"tt[0-9]+", body.imdb_id) or not re.fullmatch(r"[0-9a-fA-F]{40}", body.hash) or body.media_type not in ("movie", "series"):
+        raise HTTPException(422, "Invalid release identity")
+    item = body.model_dump()
+    item["hash"] = body.hash.lower()
+    identity = f"{body.imdb_id}:{item['hash']}:{body.season}:{body.episode}"
+    await db.saved_releases.update_one({"_id": identity}, {"$set": item, "$setOnInsert": {"created": now_iso()}}, upsert=True)
+    return {"success": True}
+
+
+@api_router.get("/saved")
+async def saved_library():
+    return {"items": await db.saved_releases.find({}).sort("created", -1).to_list(length=None)}
+
+
+@api_router.delete("/saved/{identity}")
+async def forget_release(identity: str):
+    await db.saved_releases.delete_one({"_id": identity})
+    return {"success": True}
+
+
 @api_router.get("/library")
 async def library():
     key = await get_torbox_key()
@@ -1105,7 +1194,14 @@ def public_base(request: Request) -> str:
     return f"{proto}://{host}" if host else str(request.base_url).rstrip("/")
 
 
-def decode_config(cfg):
+async def decode_config(cfg):
+    if cfg.startswith("install-"):
+        record = await db.addon_installs.find_one({"_id": cfg})
+        if not record:
+            raise HTTPException(404, "Unknown installation")
+        return {"k": record.get("key_override") or await get_torbox_key(), "s": record["sources"], "filters": record.get("filters", {})}
+    # Existing installations still carry their original settings.
+
     try:
         pad = cfg + "=" * (-len(cfg) % 4)
         return json.loads(base64.urlsafe_b64decode(pad).decode())
@@ -1113,13 +1209,28 @@ def decode_config(cfg):
         return {}
 
 
+class AddonSettings(SettingsIn):
+    resolutions: List[str] = []
+    editions: List[str] = []
+    formats: List[str] = []
+    result_limit: int = 40
+    order: str = "priority"
+    resolution: Optional[str] = None
+    cached_only: bool = False
+    min_gb: float = 0
+    max_gb: Optional[float] = None
+
+
 @api_router.post("/stremio/manifest-url")
-async def stremio_manifest_url(body: SettingsIn, request: Request):
+async def stremio_manifest_url(body: AddonSettings, request: Request):
     keys = await get_keys()
     key = (body.torbox_api_key or "").strip() or keys["torbox"]
     srcs = body.sources or keys["sources"]
-    cfg = {"k": key, "s": srcs}
-    enc = base64.urlsafe_b64encode(json.dumps(cfg).encode()).decode().rstrip("=")
+    if not key or not srcs or body.min_gb < 0 or (body.max_gb is not None and body.max_gb < body.min_gb):
+        raise HTTPException(422, "Check TorBox, sources and size range")
+    enc = "install-" + secrets.token_urlsafe(32)
+    await db.addon_installs.insert_one({"_id": enc, "sources": srcs,
+        "filters":body.model_dump(include={"resolution","resolutions","editions","formats","order","result_limit","cached_only","min_gb","max_gb"}), "key_override": key if key != keys["torbox"] else None})
     base = public_base(request)
     url = f"{base}/api/stremio/{enc}/manifest.json"
     return {"config": enc, "manifest_url": url,
@@ -1146,10 +1257,24 @@ async def stremio_manifest(cfg: str):
 
 @api_router.get("/stremio/{cfg}/stream/{type}/{video_id}.json")
 async def stremio_stream(cfg: str, type: str, video_id: str, request: Request):
-    conf = decode_config(cfg)
+    conf = await decode_config(cfg)
     key = conf.get("k", "")
     srcs = conf.get("s") or DEFAULT_SOURCES
     vid = video_id.replace(".json", "")
+    if vid.startswith("dmm:"):
+        match = re.fullmatch(r"dmm:(\d+)(?::(\d+))?", vid)
+        if not match:
+            return JSONResponse({"streams": []})
+        tid = int(match.group(1))
+        if match.group(2) is not None:
+            fid = int(match.group(2))
+        else:
+            info = await torbox_torrent_files(tid, key)
+            files = (info or {}).get("files") or []
+            if not files:
+                return JSONResponse({"streams": []})
+            fid = pick_file(files, None, None)
+        return await stremio_lib_stream(cfg, tid, fid, request)
     parts = vid.split(":")
     imdb_id = parts[0]
     season = int(parts[1]) if len(parts) > 1 else None
@@ -1161,8 +1286,20 @@ async def stremio_stream(cfg: str, type: str, video_id: str, request: Request):
         i["cached"] = i["hash"].lower() in tb_cached
         i["q"] = parse_quality(i["name"])
         i["rr"] = res_rank(i["q"]["resolution"])
+    filters = conf.get("filters", {})
+    resolutions = filters.get("resolutions") or ([filters["resolution"]] if filters.get("resolution") else [])
+    items = [i for i in items if (not filters.get("cached_only") or i["cached"])
+             and (not resolutions or i["q"]["resolution"] in resolutions)
+             and (not filters.get("editions") or set(filters["editions"]).intersection(i["q"]["editions"]))
+             and (not filters.get("formats") or i["q"]["source"] in filters["formats"])
+             and (not filters.get("min_gb") or (i.get("size") or 0) >= filters["min_gb"] * 1024**3)
+             and (filters.get("max_gb") is None or 0 < (i.get("size") or 0) <= filters["max_gb"] * 1024**3)]
     items.sort(key=lambda x: (x["cached"], x["rr"], x["seeders"]), reverse=True)
-    items = items[:40]
+    order = filters.get("order")
+    if order in ("size_desc", "size_asc", "seeders"):
+        field = "seeders" if order == "seeders" else "size"
+        items.sort(key=lambda i: i.get(field) or 0, reverse=order != "size_asc")
+    items = items[:max(1,min(100,filters.get("result_limit",40)))]
     base = public_base(request)
     streams = []
     for it in items:
@@ -1179,7 +1316,7 @@ async def stremio_stream(cfg: str, type: str, video_id: str, request: Request):
 
 @api_router.get("/stremio/{cfg}/resolve/{hash_}/{season}/{episode}/{name}")
 async def stremio_resolve(cfg: str, hash_: str, season: str, episode: str, name: str):
-    conf = decode_config(cfg)
+    conf = await decode_config(cfg)
     key = conf.get("k", "")
     s = int(season) if season not in ("-", "") else None
     e = int(episode) if episode not in ("-", "") else None
@@ -1191,7 +1328,7 @@ async def stremio_resolve(cfg: str, hash_: str, season: str, episode: str, name:
 
 @api_router.get("/stremio/{cfg}/catalog/{type}/{id}.json")
 async def stremio_catalog(cfg: str, type: str, id: str, request: Request):
-    conf = decode_config(cfg)
+    conf = await decode_config(cfg)
     key = conf.get("k", "")
     async with httpx.AsyncClient() as http:
         r = await http.get(f"{TORBOX_API}/torrents/mylist", params={"bypass_cache": "true"},
@@ -1226,7 +1363,7 @@ async def stremio_catalog(cfg: str, type: str, id: str, request: Request):
 
 @api_router.get("/stremio/{cfg}/meta/{type}/{id}.json")
 async def stremio_meta(cfg: str, type: str, id: str):
-    conf = decode_config(cfg)
+    conf = await decode_config(cfg)
     key = conf.get("k", "")
     idv = id.replace(".json", "")
     if not idv.startswith("dmm:"):
@@ -1261,7 +1398,7 @@ async def stremio_lib_stream(cfg: str, tid: int, fid: int, request: Request):
 
 @api_router.get("/stremio/{cfg}/libresolve/{tid}/{fid}")
 async def stremio_lib_resolve(cfg: str, tid: int, fid: int):
-    conf = decode_config(cfg)
+    conf = await decode_config(cfg)
     key = conf.get("k", "")
     async with httpx.AsyncClient() as http:
         r = await http.get(f"{TORBOX_API}/torrents/requestdl",

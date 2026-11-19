@@ -1,3 +1,4 @@
+import { cataloguePage, useCatalogueCount } from "@/components/CatalogueCount";
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -9,14 +10,15 @@ import Pagination from "@/components/Pagination";
 export default function Home() {
   const { type } = useParams();
   const isBrowse = !!type;
+  const {count, control} = useCatalogueCount();
   const [page, setPage] = useState(1);
 
-  useEffect(() => { setPage(1); window.scrollTo(0, 0); }, [type]);
+  useEffect(() => { setPage(1); window.scrollTo(0, 0); }, [type, count]);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["home", type || "trending", page],
-    queryFn: () => (isBrowse ? api.discover(type, page) : api.trending()),
-    keepPreviousData: true,
+  const { data, isLoading, isError, isFetching, refetch } = useQuery({
+    queryKey: ["home", type || "trending", page, count],
+    queryFn: () => (isBrowse ? cataloguePage(n=>api.discover(type,n), page, count) : api.trending()),
+    retry: 1,
   });
 
   const items = data?.results || [];
@@ -59,7 +61,16 @@ export default function Home() {
           </h2>
           {isBrowse && data && <span className="text-sm text-slate-500">Page {data.page} of {Math.min(data.total_pages, 500)}</span>}
         </div>
-        {isLoading ? <CardSkeleton /> : <MediaGrid items={items} />}
+        {isBrowse && control}
+        {isLoading && <CardSkeleton />}
+        {isError && <div role="alert" className="rounded border border-white/10 p-5">
+          <p>Couldn’t load {title.toLowerCase()}. Check the catalogue connection.</p>
+          <button disabled={isFetching} onClick={() => refetch()} className="mt-3 rounded border border-current px-4 py-2">
+            {isFetching ? "Retrying…" : "Retry"}
+          </button>
+        </div>}
+        {!isLoading && !isError && !items.length && <p>No titles on this page.</p>}
+        {items.length > 0 && <MediaGrid items={items} />}
         {isBrowse && data && <Pagination page={data.page} totalPages={data.total_pages} onChange={goto} />}
       </section>
     </div>

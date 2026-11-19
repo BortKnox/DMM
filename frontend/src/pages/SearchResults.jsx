@@ -1,3 +1,4 @@
+import { cataloguePage, useCatalogueCount } from "@/components/CatalogueCount";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -9,13 +10,14 @@ import Pagination from "@/components/Pagination";
 export default function SearchResults() {
   const [params] = useSearchParams();
   const q = params.get("q") || "";
+  const {count, control} = useCatalogueCount();
   const [page, setPage] = useState(1);
 
-  useEffect(() => { setPage(1); }, [q]);
+  useEffect(() => { setPage(1); }, [q, count]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["search", q, page],
-    queryFn: () => api.search(q, page),
+    queryKey: ["search", q, page, count],
+    queryFn: () => cataloguePage(n=>api.search(q,n),page,count),
     enabled: !!q,
     keepPreviousData: true,
   });
@@ -30,6 +32,7 @@ export default function SearchResults() {
         <h1 className="font-heading text-3xl md:text-4xl font-bold tracking-tight metallic-text">“{q}”</h1>
         {data && <span className="text-sm text-slate-500">{data.total_results} results · page {data.page} of {Math.min(data.total_pages, 500)}</span>}
       </div>
+      {control}
       {isLoading ? (
         <CardSkeleton />
       ) : items.length ? (

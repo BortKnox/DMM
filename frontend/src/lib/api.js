@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "";
 export const API = `${BACKEND_URL}/api`;
 
 export const BRAND = {
@@ -21,7 +21,7 @@ export const api = {
   search: (q, page = 1) => client.get("/search", { params: { q, page } }).then((r) => r.data),
   trending: () => client.get("/trending").then((r) => r.data),
   discover: (type, page = 1) => client.get(`/discover/${type}`, { params: { page } }).then((r) => r.data),
-  meta: (type, id) => client.get(`/meta/${type}/${id}`).then((r) => r.data),
+  meta: (type, id) => client.get(`/meta/${type}/${id}`).then(({data}) => ({...data, poster: data.poster?.startsWith("/api/poster/") ? BACKEND_URL + data.poster : data.poster})),
   season: (id, s) => client.get(`/season/${id}/${s}`).then((r) => r.data),
   sources: (imdb, params) => client.get(`/sources/${imdb}`, { params }).then((r) => r.data),
   testKey: (service, key) => client.post("/test-key", { service, key }).then((r) => r.data),
@@ -29,6 +29,10 @@ export const api = {
   bulkAdd: (items) => client.post("/torbox/bulk-add", { items }).then((r) => r.data),
   cacheSeason: (body) => client.post("/torbox/cache-season", body).then((r) => r.data),
   resolve: (body) => client.post("/torbox/resolve", body).then((r) => r.data),
+  saveTitle: body => client.put("/saved/title", body).then(r => r.data),
+  saveRelease: (body) => client.put("/saved", body).then(r => r.data),
+  saved: () => client.get("/saved").then(r => r.data),
+  forget: (id) => client.delete("/saved/" + encodeURIComponent(id)).then(r => r.data),
   library: () => client.get("/library").then((r) => r.data),
   deleteLib: (id) => client.delete(`/library/${id}`).then((r) => r.data),
   libraryDl: (tid, fid) => client.get(`/library/dl/${tid}/${fid}`).then((r) => r.data),

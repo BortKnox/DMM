@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Search, Home, Library, Settings, Puzzle, Clapperboard, Tv, Sparkles, Zap } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { api, BRAND } from "@/lib/api";
-import Onboarding from "@/components/Onboarding";
+import { api } from "@/lib/api";
+
 
 const navItems = [
   { to: "/", label: "Discover", icon: Home },
@@ -15,6 +15,15 @@ const navItems = [
 ];
 
 export default function Layout({ children }) {
+  const [dark, setDark] = useState(() => {
+    try { return localStorage.getItem("discover-theme") === "dark"; }
+    catch { return false; }
+  });
+  function toggleTheme() {
+    setDark(!dark);
+    try { localStorage.setItem("discover-theme", dark ? "light" : "dark"); }
+    catch { /* The choice still applies for this visit. */ }
+  }
   const navigate = useNavigate();
   const location = useLocation();
   const [q, setQ] = useState("");
@@ -31,12 +40,12 @@ export default function Layout({ children }) {
   };
 
   return (
-    <div className="min-h-screen flex bg-[#050507] text-slate-100 relative z-[2]">
-      {config?.needs_onboarding && <Onboarding />}
+    <div data-theme={dark ? "dark" : "light"} className="bench min-h-screen flex bg-[#050507] text-slate-100 relative z-[2]">
+
       {/* Sidebar */}
       <aside className="hidden lg:flex flex-col w-64 shrink-0 border-r border-white/5 bg-[#08090d] sticky top-0 h-screen">
         <Link to="/" data-testid="sidebar-logo" className="flex items-center gap-3 px-6 py-6">
-          <img src={BRAND.icon} alt="DMM" className="w-10 h-10 rounded-lg object-cover ring-1 ring-white/10" />
+          <span className="bench-mark" aria-label="DMM">DM</span>
           <div className="leading-tight">
             <div className="font-heading font-extrabold text-lg metallic-text tracking-tight">DMM</div>
             <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Debrid Media Manager</div>
@@ -86,7 +95,7 @@ export default function Layout({ children }) {
         <header className="sticky top-0 z-30 bg-[#0C0D12]/70 backdrop-blur-xl border-b border-white/10">
           <div className="flex items-center gap-4 px-4 md:px-8 py-3.5">
             <Link to="/" className="lg:hidden flex items-center gap-2">
-              <img src={BRAND.icon} alt="DMM" className="w-8 h-8 rounded-md" />
+              <span className="bench-mark" aria-label="DMM">DM</span>
             </Link>
             <form onSubmit={submit} className="flex-1 max-w-2xl">
               <div className="relative group">
@@ -100,21 +109,22 @@ export default function Layout({ children }) {
                 />
               </div>
             </form>
-            <a
-              href="/stremio"
+      <button className="bench-theme" aria-pressed={dark} onClick={toggleTheme}>Dark mode</button>
+            <Link
+              to="/stremio"
               data-testid="header-stremio-btn"
               className="hidden sm:inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 to-blue-400 px-4 py-2 text-sm font-semibold text-white hover:brightness-110 transition-[filter] shadow-[0_4px_20px_rgba(59,130,246,0.35)]"
             >
               <Sparkles size={15} /> Add Plugin
-            </a>
+            </Link>
           </div>
         </header>
 
         <main className="flex-1">{children}</main>
 
         {/* Mobile nav */}
-        <nav className="lg:hidden sticky bottom-0 z-30 bg-[#0C0D12]/90 backdrop-blur-xl border-t border-white/10 flex justify-around py-2">
-          {navItems.slice(0, 5).map(({ to, label, icon: Icon }) => {
+        <nav className="lg:hidden sticky bottom-0 z-30 bg-[#0C0D12]/90 backdrop-blur-xl border-t border-white/10 flex justify-around gap-1 overflow-x-auto py-2">
+          {navItems.map(({ to, label, icon: Icon }) => {
             const active = to === "/" ? location.pathname === "/" : location.pathname.startsWith(to);
             return (
               <Link key={to} to={to} className={`flex flex-col items-center gap-0.5 px-2 py-1 text-[10px] ${active ? "text-blue-400" : "text-slate-500"}`}>
