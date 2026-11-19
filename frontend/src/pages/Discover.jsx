@@ -21,15 +21,6 @@ const art = (film, type) => `https://images.metahub.space/${type}/${type === "po
 const overlap = (a, b) => a.tags.filter(tag => b.tags.includes(tag));
 
 export default function Discover() {
-  const [dark, setDark] = useState(() => {
-    try { return localStorage.getItem("discover-theme") === "dark"; }
-    catch { return false; }
-  });
-  function toggleTheme() {
-    setDark(!dark);
-    try { localStorage.setItem("discover-theme", dark ? "light" : "dark"); }
-    catch { /* The choice still applies for this visit. */ }
-  }
   const [current, setCurrent] = useState(films[0]);
   const [mood, setMood] = useState("Everything");
   const [history, setHistory] = useState([]);
@@ -48,9 +39,9 @@ export default function Discover() {
     setMood(prior.mood);
     setHistory(history.slice(0, -1));
   }
-  return <div className="discovery" data-theme={dark ? "dark" : "light"}>
+  return <div className="discovery">
     <header><span className="desk-label">BORT / SCREENING ROOM</span><h1>Discover</h1>
-      <button className="theme-switch" aria-pressed={dark} onClick={toggleTheme}>Dark mode</button>
+
     </header>
     <section className="screen" aria-label="Featured pick">
       <img className="still" src={art(current,"background")} alt="" key={current.id}/>

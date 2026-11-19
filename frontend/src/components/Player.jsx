@@ -4,8 +4,8 @@ import { transcodeUrl } from "@/lib/api";
 
 export default function Player({ open, url, title, loading, onClose }) {
   const videoRef = useRef(null);
-  // Default to Universal (server transcode -> h264 + AAC) so audio ALWAYS works.
-  const [universal, setUniversal] = useState(true);
+  const [failure, setFailure] = useState("");
+  const [universal, setUniversal] = useState(false);
 
   useEffect(() => {
     const onKey = (e) => e.key === "Escape" && onClose();
@@ -13,7 +13,7 @@ export default function Player({ open, url, title, loading, onClose }) {
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  useEffect(() => { setUniversal(true); }, [url]);
+  useEffect(() => { setUniversal(false); setFailure(""); }, [url, open]);
 
   if (!open) return null;
 
@@ -30,25 +30,29 @@ export default function Player({ open, url, title, loading, onClose }) {
           {loading ? (
             <div className="flex flex-col items-center gap-3 text-slate-400">
               <Loader2 className="animate-spin text-blue-500" size={36} />
-              <p className="text-sm">Resolving stream from TorBox…</p>
+              <p className="text-sm">Resolving stream from TorBoxâ€¦</p>
             </div>
           ) : src ? (
-            <video ref={videoRef} key={src} src={src} controls playsInline preload="auto" className="w-full h-full" data-testid="player-video">
-              Your browser can’t play this stream.
+            <video ref={videoRef} key={src} src={src} onError={(event) => {
+              const code = event.currentTarget.error?.code;
+              setFailure(code === 2 ? "The network stream was interrupted." : code === 3 ? "The browser could not decode this stream." : "The browser could not open this stream.");
+            }} controls playsInline preload="auto" className="w-full h-full" data-testid="player-video">
+              Your browser canâ€™t play this stream.
             </video>
           ) : null}
         </div>
+        {failure && <p role="alert" className="px-4 py-2">{failure} {universal ? "Try opening the original externally." : "Try server conversion below."}</p>}
         {url && !loading && (
           <div className="flex items-center justify-between gap-3 px-4 py-3 border-t border-white/10 flex-wrap">
             <p className="text-[11px] text-slate-500 flex items-center gap-1.5">
               {universal
-                ? <><Wand2 size={12} className="text-blue-400" /> Universal mode — transcoded in-house (video + audio guaranteed). Press ▶ to start.</>
-                : <><Zap size={12} className="text-amber-400" /> Direct mode — seekable, but audio may be silent on MKV/HEVC.</>}
+                ? <><Wand2 size={12} className="text-blue-400" /> Universal mode â€” transcoded in-house (video + audio guaranteed). Press â–¶ to start.</>
+                : <><Zap size={12} className="text-amber-400" /> Direct mode â€” seekable, but audio may be silent on MKV/HEVC.</>}
             </p>
             <div className="flex items-center gap-2">
-              <button data-testid="player-universal" onClick={() => setUniversal((v) => !v)}
+              <button data-testid="player-universal" onClick={() => { setFailure(""); setUniversal((v) => !v); }}
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${universal ? "border-blue-500/50 bg-blue-500/15 text-blue-200" : "border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"}`}>
-                <Wand2 size={13} /> {universal ? "Universal: ON" : "Direct mode"}
+                <Wand2 size={13} /> {universal ? "Use direct playback" : "Use server conversion"}
               </button>
               <a href={url} target="_blank" rel="noreferrer" data-testid="player-external"
                 className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-white/10 transition-colors">
