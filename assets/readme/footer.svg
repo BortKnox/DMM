@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 960 72" width="960" height="72" role="img" aria-label="End of sheet. BK-03. DMM. Built for my bench.">
+<title>End of sheet. BK-03. DMM. Built for my bench.</title>
+<defs><pattern id="dots" width="14" height="14" patternUnits="userSpaceOnUse"><circle cx="7" cy="7" r=".8" fill="#a6ad9c" fill-opacity=".45"/></pattern></defs>
+<style>
+text{font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif}
+.m{font-family:'Cascadia Code','SF Mono',Consolas,'DejaVu Sans Mono',monospace}
+.s{font-family:Georgia,'Times New Roman',serif;font-style:italic;font-weight:400}
+.pulse{animation:pulse 2.6s ease-in-out infinite}
+.blink{animation:blink 1.1s steps(1,end) infinite}
+.flow{stroke-dasharray:8 30;animation:flow 1.8s linear infinite}
+.spin{transform-box:fill-box;transform-origin:center;animation:spin 60s linear infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+@keyframes flow{to{stroke-dashoffset:-38}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+<rect x=".5" y=".5" width="959" height="71" rx="8" fill="#eeede5" stroke="#aeb3a3"/>
+<rect x="1" y="1" width="958" height="70" rx="8" fill="url(#dots)"/>
+<path d="M24.5 18v10M36.5 18v5M48.5 18v5M60.5 18v5M72.5 18v5M84.5 18v10M96.5 18v5M108.5 18v5M120.5 18v5M132.5 18v5M144.5 18v10M156.5 18v5M168.5 18v5M180.5 18v5M192.5 18v5M204.5 18v10M216.5 18v5M228.5 18v5M240.5 18v5M252.5 18v5M264.5 18v10M276.5 18v5M288.5 18v5M300.5 18v5M312.5 18v5M324.5 18v10M336.5 18v5M348.5 18v5M360.5 18v5M372.5 18v5M384.5 18v10M396.5 18v5M408.5 18v5M420.5 18v5M432.5 18v5M444.5 18v10M456.5 18v5M468.5 18v5M480.5 18v5M492.5 18v5M504.5 18v10M516.5 18v5M528.5 18v5M540.5 18v5M552.5 18v5M564.5 18v10M576.5 18v5M588.5 18v5M600.5 18v5M612.5 18v5M624.5 18v10M636.5 18v5M648.5 18v5M660.5 18v5M672.5 18v5M684.5 18v10M696.5 18v5M708.5 18v5M720.5 18v5M732.5 18v5M744.5 18v10M756.5 18v5M768.5 18v5M780.5 18v5M792.5 18v5M804.5 18v10M816.5 18v5M828.5 18v5M840.5 18v5M852.5 18v5M864.5 18v10M876.5 18v5M888.5 18v5M900.5 18v5M912.5 18v5M924.5 18v10M936.5 18v5" stroke="#242b25" stroke-width="1" fill="none"/>
+<rect x="24" y="44" width="8" height="8" fill="#e36336"/>
+<text class="m" x="42" y="52" font-size="9" font-weight="700" letter-spacing="1.8" fill="#242b25">END OF SHEET</text>
+<text class="m" x="936" y="52" font-size="9" letter-spacing="1.8" text-anchor="end" fill="#63695e">BK-03 · DMM · BUILT FOR MY BENCH</text>
+</svg>
