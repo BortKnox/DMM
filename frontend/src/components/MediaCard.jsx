@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import SaveTitle from "@/components/SaveTitle";
 import { usePosterSize } from "@/components/PosterSize";
 import { Link } from "react-router-dom";
@@ -7,15 +8,22 @@ import { api } from "@/lib/api";
 
 export function MediaCard({ item, index = 0 }) {
   const qc = useQueryClient();
+  const timer = useRef();
+  const cancel = () => clearTimeout(timer.current);
+  useEffect(() => () => clearTimeout(timer.current), [item.id, item.media_type]);
   const warm = () => {
+    cancel();
+    timer.current = setTimeout(() => {
     qc.prefetchQuery({ queryKey: ["meta", item.media_type, String(item.id)], queryFn: () => api.meta(item.media_type, item.id), staleTime: 60000 });
-    api.warm(item.media_type, item.id);
+    }, 200);
   };
   return (
     <div className="relative"><Link
       to={`/title/${item.media_type}/${item.id}`}
       onMouseEnter={warm}
       onFocus={warm}
+      onMouseLeave={cancel}
+      onBlur={cancel}
       data-testid={`media-card-${item.id}`}
       className="group relative block fade-up"
       style={{ animationDelay: `${Math.min(index * 40, 400)}ms` }}
