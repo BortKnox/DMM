@@ -85,7 +85,7 @@ export default function Layout({ children }) {
                 : "Not connected"}
             </div>
           </div>
-          <div className="mt-3 text-center text-[10px] text-slate-600">Debrid Media Manager Â· by Bort Knox</div>
+          <div className="mt-3 text-center text-[10px] text-slate-600">Debrid Media Manager · by Bort Knox</div>
         </div>
       </aside>
 
@@ -104,7 +104,7 @@ export default function Layout({ children }) {
                   data-testid="global-search-input"
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
-                  placeholder="Search movies & showsâ€¦"
+                  placeholder="Search movies & shows…"
                   className="w-full bg-white/5 border border-white/10 rounded-full pl-11 pr-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500/40 transition-shadow"
                 />
               </div>
