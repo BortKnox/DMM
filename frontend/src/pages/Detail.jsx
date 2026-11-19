@@ -136,9 +136,9 @@ export default function Detail() {
           <div className="flex gap-5 items-end max-w-4xl">
             {meta.poster && <img src={meta.poster} alt={meta.title} className="hidden sm:block w-28 md:w-40 rounded-lg border border-white/10 shadow-2xl" />}
             <div>
-              {meta.logo ? <img src={meta.logo} alt={meta.title} className="max-h-24 max-w-[70%] object-contain drop-shadow-lg mb-1" />
+              <div className="title-line">{meta.logo ? <img src={meta.logo} alt={meta.title} className="max-h-24 max-w-[70%] object-contain drop-shadow-lg mb-1" />
                 : <h1 className="font-heading text-3xl md:text-5xl font-extrabold tracking-tighter text-white leading-none">{meta.title}</h1>}
-              <SaveTitle type={mediaType} id={tmdbId} title={meta.title}/>
+              <SaveTitle type={mediaType} id={tmdbId} title={meta.title}/></div>
               {meta.tagline && <p className="italic text-slate-400 text-sm mt-2">{meta.tagline}</p>}
               <div className="flex flex-wrap items-center gap-2 mt-3 text-xs text-slate-300">
                 <span className="inline-flex items-center gap-1 text-amber-300"><Star size={13} className="fill-amber-300" /> {meta.rating}</span>

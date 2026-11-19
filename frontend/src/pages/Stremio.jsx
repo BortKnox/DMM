@@ -5,9 +5,9 @@ import { Puzzle, Copy, ExternalLink, Loader2, Zap, Sparkles, Terminal, CheckCirc
 import { api, BRAND } from "@/lib/api";
 
 const STEPS = [
-  "Pick the indexer sources you want the plugin to search.",
-  "Generate your personal plugin link — it embeds your TorBox key securely.",
-  "Click Install Plugin, or copy the link into your media player’s add-on / plugin screen.",
+  "Choose sources and playback filters for this installation.",
+  "Generate a private manifest URL. In Harbor, paste it into the add-on installer. In Stremio, use Install in Stremio or paste the manifest URL into Add-ons.",
+  "On a separate media center, the client must be able to reach the backend. A localhost link works only on the computer running DMM.",
 ];
 
 export default function Stremio() {
@@ -17,6 +17,11 @@ export default function Stremio() {
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const [resolution, setResolution] = useState("");
+  const [cached, setCached] = useState(false);
+  const [minimum, setMinimum] = useState("");
+  const [maximum, setMaximum] = useState("");
+  const invalid = Number(minimum)<0 || (maximum !== "" && Number(maximum)<Number(minimum));
   const active = sources ?? config?.sources ?? [];
 
   const toggle = (id) => {
@@ -27,12 +32,12 @@ export default function Stremio() {
 
   const generate = async () => {
     setLoading(true);
-    try { setResult(await api.manifestUrl({ sources: active })); toast.success("Plugin link generated"); }
+    try { setResult(await api.manifestUrl({ sources: active, resolution: resolution || null, cached_only:cached, min_gb:Number(minimum), max_gb:maximum === "" ? null : Number(maximum) })); toast.success("Plugin link generated"); }
     catch { toast.error("Failed to generate plugin link"); } finally { setLoading(false); }
   };
 
-  const copy = () => {
-    navigator.clipboard.writeText(result.manifest_url);
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(result.manifest_url); } catch { toast.error("Clipboard unavailable. Select and copy the manifest URL."); return; }
     setCopied(true); toast.success("Plugin link copied"); setTimeout(() => setCopied(false), 2000);
   };
 
@@ -41,8 +46,8 @@ export default function Stremio() {
       <div className="flex items-center gap-4 mb-8">
         <img src={BRAND.icon} alt="DMM" className="w-14 h-14 rounded-xl ring-1 ring-white/10" />
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">One click integration</p>
-          <h1 className="font-heading text-3xl md:text-4xl font-bold tracking-tight metallic-text mt-1 flex items-center gap-2"><Puzzle /> Add Plugin</h1>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Media center</p>
+          <h1 className="font-heading text-3xl md:text-4xl font-bold tracking-tight metallic-text mt-1 flex items-center gap-2"><Puzzle /> Harbor &amp; Stremio</h1>
         </div>
       </div>
 
@@ -80,7 +85,15 @@ export default function Stremio() {
         </div>
       </div>
 
-      <button data-testid="stremio-generate-btn" onClick={generate} disabled={loading}
+      <fieldset onChange={() => setResult(null)} className="mb-5 flex flex-wrap gap-4">
+        <legend className="mb-2 font-semibold">Release filters</legend>
+        <label>Resolution <select value={resolution} onChange={e=>setResolution(e.target.value)}><option value="">Any</option>{["2160p","1080p","720p","480p"].map(r=><option key={r}>{r}</option>)}</select></label>
+        <label>Min GB <input className="w-16" type="number" min="0" step="any" value={minimum} onChange={e=>setMinimum(e.target.value)}/></label>
+        <label>Max GB <input className="w-16" type="number" min="0" step="any" value={maximum} onChange={e=>setMaximum(e.target.value)}/></label>
+        <label><input type="checkbox" checked={cached} onChange={e=>setCached(e.target.checked)}/> Cached only</label>
+        {invalid && <p role="alert">Check the size range.</p>}
+      </fieldset>
+      <button data-testid="stremio-generate-btn" onClick={generate} disabled={loading || !active.length || !config?.keys_set?.torbox || invalid}
         className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 to-blue-400 px-6 py-3 text-sm font-bold text-white hover:brightness-110 transition-[filter] disabled:opacity-60">
         {loading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />} Generate Plugin Link
       </button>
@@ -98,11 +111,11 @@ export default function Stremio() {
           <div className="flex flex-wrap gap-3">
             <a data-testid="stremio-install-btn" href={result.install_url}
               className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 to-blue-400 px-6 py-3 text-sm font-bold text-white hover:brightness-110 transition-[filter] shadow-[0_6px_24px_rgba(59,130,246,0.4)]">
-              <Puzzle size={16} /> Install Plugin
+              <Puzzle size={16} /> Install in Stremio
             </a>
             <a href={`https://web.stremio.com/#/addons?addon=${encodeURIComponent(result.manifest_url)}`} target="_blank" rel="noreferrer"
               className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-slate-100 hover:bg-white/10 transition-colors">
-              <ExternalLink size={15} /> Open in Player (Web)
+              <ExternalLink size={15} /> Open Stremio Web
             </a>
           </div>
         </div>

@@ -1,12 +1,16 @@
-# DMM — DEBRID MEDIA MANAGER
+# DMM / SCREENING ROOM
 
-**A light-first front end for TorBox: search a title, see which sources are already cached, play or cache with one click, and take it all into Stremio as a plugin.**
+**Find a film, pick a release, and watch it where you are.** I built DMM for the evenings I use Harbor on the media center and the ones when all I have is a browser.
+
+[Project preview](https://bortknox.github.io/DMM/) · [Local setup](#run-it) · [Playback field notes](#playback-verification)
+
+![DMM screening room with the light bench interface](docs/screening-room.jpg)
 
 ```
-UNIT     DMM
-TYPE     TOOL
-STACK    REACT / FASTAPI / MONGODB / FFMPEG
-STATUS   ACTIVE
+UNIT     03 / BORT KNOX
+TYPE     PERSONAL MEDIA WORKBENCH
+CLIENT   BROWSER / HARBOR / STREMIO / VLC / MPC-HC
+ENGINE   REACT / FASTAPI / MONGODB / FFMPEG
 ```
 
 ## WHAT IT DOES
@@ -18,7 +22,8 @@ STATUS   ACTIVE
 - **Cache and play.** One-tap cache for a single source or a whole season. Cached items play in an embedded
   player; an optional ffmpeg endpoint remuxes or transcodes to browser-friendly MP4 when native playback fails.
 - **Library.** Your TorBox library with cover art, grid and list views, download and delete.
-- **Stremio plugin.** Generates a per-user `manifest.json` serving streams, a library catalogue and metadata.
+- **Harbor and Stremio.** Choose sources, resolution, optional size limits and cached-only results for each installation. Paste the private manifest URL into Harbor or open it with Stremio. A separate media center needs a reachable backend address. The default loopback setup works on the backend PC.
+- **Native players.** The chain-link control beside Copy magnet resolves a temporary TorBox file URL. Paste it into VLC’s Open Network Stream or MPC-HC’s Open File. Resolving can register the release in TorBox. Generate a fresh link when one expires.
 - **Keys stay with you.** No keys ship in the code. TorBox and TMDB (plus optional OMDb, RPDB, Fanart and
   TheTVDB) are entered in Settings, each with a Test button, and stored in your own MongoDB.
   "Disconnect and erase keys" wipes them.
@@ -28,9 +33,9 @@ STATUS   ACTIVE
 You need Python 3, Node with Yarn Classic, MongoDB, and `ffmpeg` on the path if you want Universal Playback.
 
 ```bash
-git clone https://github.com/BortKnox/DMM.git
+git clone --branch feature/discovery-desk https://github.com/BortKnox/DMM.git
 cd DMM/backend
-pip install -r requirements.txt
+python -m pip install fastapi uvicorn httpx motor python-dotenv
 MONGO_URL=mongodb://127.0.0.1:27017 DB_NAME=dmm uvicorn server:app --reload
 ```
 

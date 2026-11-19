@@ -716,6 +716,8 @@ async def config():
 @api_router.post("/test-key")
 async def test_key(body: TestKeyIn):
     s, k = body.service, body.key.strip()
+    if not k and s in ("tmdb","torbox","rpdb","omdb","fanart","thetvdb"):
+        k = (await get_keys())[s]
     if not k:
         return {"ok": False, "message": "Empty key"}
     try:
@@ -747,7 +749,7 @@ async def test_key(body: TestKeyIn):
                 ok = r.status_code == 200 and (r.json().get("status") == "success")
                 return {"ok": ok, "message": "TheTVDB key valid" if ok else "Invalid TheTVDB key"}
     except Exception as e:
-        return {"ok": False, "message": str(e)[:80]}
+        return {"ok": False, "message": "Provider request failed"}
     return {"ok": False, "message": "Unknown service"}
 
 
@@ -1193,7 +1195,7 @@ async def decode_config(cfg):
         record = await db.addon_installs.find_one({"_id": cfg})
         if not record:
             raise HTTPException(404, "Unknown installation")
-        return {"k": record.get("key_override") or await get_torbox_key(), "s": record["sources"]}
+        return {"k": record.get("key_override") or await get_torbox_key(), "s": record["sources"], "filters": record.get("filters", {})}
     # Existing installations still carry their original settings.
 
     try:
@@ -1203,14 +1205,23 @@ async def decode_config(cfg):
         return {}
 
 
+class AddonSettings(SettingsIn):
+    resolution: Optional[str] = None
+    cached_only: bool = False
+    min_gb: float = 0
+    max_gb: Optional[float] = None
+
+
 @api_router.post("/stremio/manifest-url")
-async def stremio_manifest_url(body: SettingsIn, request: Request):
+async def stremio_manifest_url(body: AddonSettings, request: Request):
     keys = await get_keys()
     key = (body.torbox_api_key or "").strip() or keys["torbox"]
     srcs = body.sources or keys["sources"]
+    if not key or not srcs or body.min_gb < 0 or (body.max_gb is not None and body.max_gb < body.min_gb):
+        raise HTTPException(422, "Check TorBox, sources and size range")
     enc = "install-" + secrets.token_urlsafe(32)
     await db.addon_installs.insert_one({"_id": enc, "sources": srcs,
-        "key_override": key if key != keys["torbox"] else None})
+        "filters":body.model_dump(include={"resolution","cached_only","min_gb","max_gb"}), "key_override": key if key != keys["torbox"] else None})
     base = public_base(request)
     url = f"{base}/api/stremio/{enc}/manifest.json"
     return {"config": enc, "manifest_url": url,
@@ -1241,6 +1252,20 @@ async def stremio_stream(cfg: str, type: str, video_id: str, request: Request):
     key = conf.get("k", "")
     srcs = conf.get("s") or DEFAULT_SOURCES
     vid = video_id.replace(".json", "")
+    if vid.startswith("dmm:"):
+        match = re.fullmatch(r"dmm:(\d+)(?::(\d+))?", vid)
+        if not match:
+            return JSONResponse({"streams": []})
+        tid = int(match.group(1))
+        if match.group(2) is not None:
+            fid = int(match.group(2))
+        else:
+            info = await torbox_torrent_files(tid, key)
+            files = (info or {}).get("files") or []
+            if not files:
+                return JSONResponse({"streams": []})
+            fid = pick_file(files, None, None)
+        return await stremio_lib_stream(cfg, tid, fid, request)
     parts = vid.split(":")
     imdb_id = parts[0]
     season = int(parts[1]) if len(parts) > 1 else None
@@ -1252,6 +1277,11 @@ async def stremio_stream(cfg: str, type: str, video_id: str, request: Request):
         i["cached"] = i["hash"].lower() in tb_cached
         i["q"] = parse_quality(i["name"])
         i["rr"] = res_rank(i["q"]["resolution"])
+    filters = conf.get("filters", {})
+    items = [i for i in items if (not filters.get("cached_only") or i["cached"])
+             and (not filters.get("resolution") or i["q"]["resolution"] == filters["resolution"])
+             and (not filters.get("min_gb") or (i.get("size") or 0) >= filters["min_gb"] * 1024**3)
+             and (filters.get("max_gb") is None or 0 < (i.get("size") or 0) <= filters["max_gb"] * 1024**3)]
     items.sort(key=lambda x: (x["cached"], x["rr"], x["seeders"]), reverse=True)
     items = items[:40]
     base = public_base(request)

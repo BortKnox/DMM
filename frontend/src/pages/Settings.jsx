@@ -10,7 +10,7 @@ const KEY_FIELDS = [
   { id: "omdb", field: "omdb_api_key", label: "OMDb API Key", required: false, testable: true, hint: "omdbapi.com. Rotten Tomatoes & Metacritic scores." },
   { id: "rpdb", field: "rpdb_api_key", label: "RPDB API Key", required: false, testable: true, hint: "ratingposterdb.com. Posters with ratings baked in." },
   { id: "fanart", field: "fanart_api_key", label: "Fanart.tv API Key", required: false, testable: true, hint: "fanart.tv. HD logos on title pages." },
-  { id: "thetvdb", field: "thetvdb_api_key", label: "TheTVDB API Key", required: false, testable: true, hint: "thetvdb.com. Extended TV metadata." },
+  { id: "thetvdb", field: "thetvdb_api_key", label: "TheTVDB API Key", required: false, testable: true, hint: "thetvdb.com. Credential verification only." },
 ];
 
 export default function Settings() {
@@ -27,10 +27,10 @@ export default function Settings() {
 
   const testKey = async (id, field) => {
     const key = vals[field]?.trim();
-    if (!key) return toast.error("Enter a key first to test it");
+    if (!key && !config?.keys_set?.[id]) return toast.error("Enter a key to test");
     setTests((t) => ({ ...t, [id]: { loading: true } }));
     try {
-      const res = await api.testKey(id, key);
+      const res = await api.testKey(id, key || "");
       setTests((t) => ({ ...t, [id]: { ok: res.ok, msg: res.message } }));
       res.ok ? toast.success(res.message) : toast.error(res.message);
     } catch {
@@ -87,7 +87,7 @@ export default function Settings() {
 
       <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-6 mb-6">
         <div className="font-heading font-semibold text-white flex items-center gap-2 mb-1"><Key size={16} /> API Keys</div>
-        <p className="text-sm text-slate-500 mb-5">Keys are saved privately to this instance and remembered across sessions. Nothing is shipped or shared. Use <span className="text-blue-300">Test</span> to verify before saving.</p>
+        <p className="text-sm text-slate-500 mb-5">Keys live in this instance’s database. Test checks the saved credential or the replacement you entered.</p>
         <div className="space-y-4">
           {KEY_FIELDS.map(({ id, field, label, required, testable, hint }) => {
             const t = tests[id];

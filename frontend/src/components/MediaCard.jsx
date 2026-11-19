@@ -37,7 +37,7 @@ export function MediaCard({ item, index = 0 }) {
         <div className="absolute top-2 left-2 flex items-center gap-1 rounded-md bg-black/60 backdrop-blur-sm border border-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
           <Star size={10} className="fill-amber-300 text-amber-300" /> {item.rating || "–"}
         </div>
-        <div className="absolute top-2 right-2 rounded-md bg-blue-500/20 border border-blue-400/30 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-blue-200">
+        <div className="absolute top-9 left-2 rounded-md bg-blue-500/20 border border-blue-400/30 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-blue-200">
           {item.media_type === "series" ? "TV" : "Film"}
         </div>
         <div className="absolute bottom-0 left-0 right-0 p-3">
@@ -47,7 +47,7 @@ export function MediaCard({ item, index = 0 }) {
           <p className="text-[11px] text-slate-400 mt-0.5">{item.year}</p>
         </div>
       </div>
-    </Link><div className="absolute left-2 top-9"><SaveTitle id={item.id} type={item.media_type} title={item.title}/></div></div>
+    </Link><div className="poster-corner"><SaveTitle id={item.id} type={item.media_type} title={item.title}/></div></div>
   );
 }
 

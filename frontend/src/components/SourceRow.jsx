@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Zap, Download, Copy, Play, HardDrive, Users, Loader2, CheckCircle2, ChevronDown, ExternalLink, MonitorPlay } from "lucide-react";
+import { Zap, Plus, Link2, Copy, Play, HardDrive, Users, Loader2, CheckCircle2, ChevronDown, ExternalLink, MonitorPlay } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/lib/api";
 
@@ -35,15 +35,29 @@ function useActions(source, mediaContext, onPlay, onExternal) {
       else toast.error(res.detail || "Failed to add");
     } catch { toast.error("Failed to add to Library"); } finally { setBusy(null); }
   };
-  const copyMagnet = () => { navigator.clipboard.writeText(source.magnet); toast.success("Magnet copied"); };
-  return { busy, added, q, doPlay, doExternal, doAdd, copyMagnet };
+  async function copyPlayerUrl() {
+    setBusy("link");
+    try {
+      const {url} = await api.resolve({hash:source.hash, name:source.name, season:mediaContext?.season, episode:mediaContext?.episode});
+      if (!url) throw new Error();
+      await navigator.clipboard.writeText(url);
+      toast.success("Player URL copied. Paste into VLC or MPC-HC.");
+    } catch { toast.error("Could not resolve or copy the player URL. Check TorBox and clipboard access."); }
+    finally { setBusy(null); }
+  }
+  async function copyMagnet() {
+    try { await navigator.clipboard.writeText(source.magnet); toast.success("Magnet copied"); }
+    catch { toast.error("Clipboard unavailable"); }
+  }
+  return { busy, added, q, doPlay, doExternal, doAdd, copyPlayerUrl, copyMagnet };
 }
 
 export default function SourceRow({ source, mediaContext, compact = false, onPlay, onExternal }) {
-  const { busy, added, q, doPlay, doExternal, doAdd, copyMagnet } = useActions(source, mediaContext, onPlay, onExternal);
+  const { busy, added, q, doPlay, doExternal, doAdd, copyPlayerUrl, copyMagnet } = useActions(source, mediaContext, onPlay, onExternal);
   const [menu, setMenu] = useState(false);
   const id8 = source.hash.slice(0, 8);
 
+  const playerLink = <button type="button" title="Copy temporary player URL for VLC or MPC-HC. Resolving may add this release to TorBox." aria-label="Copy player URL" disabled={!!busy} onClick={copyPlayerUrl} className="p-2 rounded border border-white/10">{busy==="link" ? <Loader2 size={14} className="animate-spin"/> : <Link2 size={14}/>}</button>;
   const badges = (
     <>
       {source.cached && <Badge tone="cached"><Zap size={10} className="mr-0.5 fill-emerald-300" /> Instant</Badge>}
@@ -71,11 +85,12 @@ export default function SourceRow({ source, mediaContext, compact = false, onPla
             className="flex-1 inline-flex items-center justify-center gap-1 rounded-full bg-gradient-to-r from-blue-600 to-blue-400 px-2 py-1.5 text-[11px] font-semibold text-white hover:brightness-110 transition-[filter] disabled:opacity-60">
             {busy === "play" ? <Loader2 size={12} className="animate-spin" /> : <Play size={11} className="fill-white" />} Play
           </button>
-          <button data-testid={`add-btn-${id8}`} onClick={doAdd} disabled={busy === "add" || added} title="Save to DMM"
+          <button data-testid={`add-btn-${id8}`} aria-label="Save release to DMM" onClick={doAdd} disabled={busy === "add" || added} title="Save to DMM"
             className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 p-1.5 text-slate-300 hover:bg-white/10 transition-colors disabled:opacity-60">
-            {added ? <CheckCircle2 size={13} className="text-emerald-400" /> : busy === "add" ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
+            {added ? <CheckCircle2 size={13} className="text-emerald-400" /> : busy === "add" ? <Loader2 size={13} className="animate-spin" /> : <Plus size={15} />}
           </button>
-          <button data-testid={`copy-btn-${id8}`} onClick={copyMagnet} className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 p-1.5 text-slate-400 hover:text-slate-100 hover:bg-white/10 transition-colors">
+          {playerLink}
+          <button aria-label="Copy magnet" data-testid={`copy-btn-${id8}`} onClick={copyMagnet} className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 p-1.5 text-slate-400 hover:text-slate-100 hover:bg-white/10 transition-colors">
             <Copy size={13} />
           </button>
         </div>
@@ -101,12 +116,13 @@ export default function SourceRow({ source, mediaContext, compact = false, onPla
           {busy === "play" ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} className="fill-white" />}
           {source.cached ? "Play" : "Cache & Play"}
         </button>
-        <button data-testid={`add-btn-${id8}`} onClick={doAdd} disabled={busy === "add" || added}
+        <button data-testid={`add-btn-${id8}`} aria-label="Save release to DMM" onClick={doAdd} disabled={busy === "add" || added}
           className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-white/10 transition-colors disabled:opacity-60">
-          {added ? <CheckCircle2 size={13} className="text-emerald-400" /> : busy === "add" ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
-          {added ? "Added" : "Save to DMM"}
+          {added ? <CheckCircle2 size={13} className="text-emerald-400" /> : busy === "add" ? <Loader2 size={13} className="animate-spin" /> : <Plus size={15} />}
+
         </button>
-        <button data-testid={`copy-btn-${id8}`} onClick={copyMagnet}
+        {playerLink}
+          <button aria-label="Copy magnet" data-testid={`copy-btn-${id8}`} onClick={copyMagnet}
           className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 p-2 text-slate-400 hover:text-slate-100 hover:bg-white/10 transition-colors" title="Copy magnet">
           <Copy size={13} />
         </button>

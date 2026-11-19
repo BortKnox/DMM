@@ -49,15 +49,15 @@ export default function Discover() {
     <section className="screen" aria-label="Featured pick">
       <img className="still" src={art(current,"background")} alt="" key={current.id}/>
       <div className="feature" aria-live="polite"><small>{current.year}　/　{current.minutes} MIN</small>
-        <h2>{current.title}</h2><p>{current.pitch}</p>
-        <div className="actions"><Link to={`/title/movie/${current.imdb}`}>Find a release</Link><SaveTitle id={current.imdb} type="movie" title={current.title}/>{history.length > 0 && <button onClick={back}>Previous pick</button>}</div>
+        <div className="title-line"><h2>{current.title}</h2><SaveTitle id={current.imdb} type="movie" title={current.title}/></div><p>{current.pitch}</p>
+        <div className="actions"><Link to={`/title/movie/${current.imdb}`}>Find a release</Link>{history.length > 0 && <button onClick={back}>Previous pick</button>}</div>
       </div>
     </section>
     <section className="shelf"><div className="section-head"><h2>Where to next?</h2><small>TONIGHT’S SELECTION</small></div>
       <div className="moods" aria-label="Filter suggestions">{moods.map(m => <button key={m} aria-pressed={mood === m} onClick={() => setMood(m)}>{m}</button>)}</div>
       {posters.control}<div className="picks" style={posters.style}>{connected.map(f => <article className="pick" key={f.id}><Link to={`/title/movie/${f.imdb}`}>
         <img src={art(f,"poster")} alt="" loading="lazy"/><span><small>{f.year} · {f.minutes} min</small><strong>{f.title}</strong><em>{overlap(current,f)[0] || (mood === "Everything" ? f.tags[0] : mood)}</em></span>
-      </Link><div className="pick-actions"><SaveTitle id={f.imdb} type="movie" title={f.title}/><button onClick={() => {choose(f);window.scrollTo(0,0);}}>More like this</button></div></article>)}</div>
+      </Link><div className="poster-corner"><SaveTitle id={f.imdb} type="movie" title={f.title}/></div><div className="pick-actions"><button onClick={() => {choose(f);window.scrollTo(0,0);}}>More like this</button></div></article>)}</div>
       {origin && <p className="trail">Last pick · {origin.title}</p>}
     </section>
   </div>;
